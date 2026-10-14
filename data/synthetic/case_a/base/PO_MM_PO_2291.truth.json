@@ -1,0 +1,13 @@
+{
+  "kind": "PO",
+  "po_no": "MM/PO/2291",
+  "po_date": "2026-04-02",
+  "po_date_printed": "02-04-2026",
+  "credit_days": 45,
+  "supplier_gstin": "07AAAAA0000A1Z5",
+  "buyer_gstin": "27BBBBB1111B1Z2",
+  "qty": "500",
+  "rate": "820",
+  "taxable_total": "410000",
+  "grand_total": "483800"
+}

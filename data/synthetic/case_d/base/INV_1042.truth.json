@@ -1,0 +1,15 @@
+{
+  "kind": "INVOICE",
+  "invoice_no": "INV-1042",
+  "invoice_date": "2026-05-22",
+  "invoice_date_printed": "22-05-2026",
+  "po_ref": "OM/PO/5540",
+  "challan_ref": "CH-881",
+  "supplier_gstin": "03GGGGG6666G1Z9",
+  "buyer_gstin": "08HHHHH7777H1Z3",
+  "taxable_total": "14000",
+  "gst_amount": "2520",
+  "grand_total": "16520",
+  "qty": "1000",
+  "rate": "14"
+}

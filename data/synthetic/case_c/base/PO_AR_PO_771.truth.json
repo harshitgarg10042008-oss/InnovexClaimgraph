@@ -1,0 +1,13 @@
+{
+  "kind": "PO",
+  "po_no": "AR/PO/771",
+  "po_date": "2026-03-10",
+  "po_date_printed": "10-03-2026",
+  "credit_days": 30,
+  "supplier_gstin": "24EEEEE4444E1Z4",
+  "buyer_gstin": "27FFFFF5555F1Z7",
+  "qty": "1200",
+  "rate": "210",
+  "taxable_total": "252000",
+  "grand_total": "264600"
+}

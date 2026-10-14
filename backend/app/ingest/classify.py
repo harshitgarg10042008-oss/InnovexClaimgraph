@@ -24,24 +24,27 @@ DocKind = Literal[
 
 PATTERNS: dict[str, list[tuple[str, int]]] = {
     "PO": [
-        (r"\bpurchase\s+order\b", 12),
-        (r"\bwork\s+order\b", 10),
-        (r"\bpo\s+no\b", 6),
-        (r"\bpo\s+date\b", 6),
+        (r"\bpurchase\s+order\b", 16),
+        (r"\bwork\s+order\b", 12),
+        (r"\bvendor\s*/\s*supplier\b", 6),
+        (r"\bbuyer\s*/\s*delivery\b", 6),
+        (r"\bpo\s*no\b", 6),
+        (r"\bpo\s*date\b", 6),
         (r"\bpayment\s+terms\b", 4),
         (r"\bvendor\s+code\b", 3),
-        (r"\bpo\s+ref\b", -2),  # PO Ref appears in Challan/Invoice, deduct slightly
+        (r"\bpo\s+ref\b", -4),  # PO Ref appears in Challan/Invoice, deduct
     ],
     "CHALLAN": [
         (r"\bdelivery\s+challan\b", 12),
         (r"\bdelivery\s+note\b", 12),
-        (r"\bchallan\b", 6),
+        (r"(?<!delivery\s)\bchallan\b", 6),
         (r"\bchallan\s+no\b", 8),
         (r"\bdispatched\s+qty\b", 6),
         (r"\baccepted\s+qty\b", 6),
         (r"\bgoods\s+inward\b", 5),
         (r"\breceived\s+by\b", 4),
         (r"\bgate\s+2\b", 4),
+        (r"\bpurchase\s+order\b", -6),
     ],
     "INVOICE": [
         (r"\btax\s+invoice\b", 12),

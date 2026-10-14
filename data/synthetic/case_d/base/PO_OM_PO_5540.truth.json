@@ -1,0 +1,13 @@
+{
+  "kind": "PO",
+  "po_no": "OM/PO/5540",
+  "po_date": "2026-05-06",
+  "po_date_printed": "06-05-2026",
+  "credit_days": 30,
+  "supplier_gstin": "03GGGGG6666G1Z9",
+  "buyer_gstin": "08HHHHH7777H1Z3",
+  "qty": "1000",
+  "rate": "14",
+  "taxable_total": "14000",
+  "grand_total": "16520"
+}

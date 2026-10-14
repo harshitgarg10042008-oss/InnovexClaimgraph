@@ -1,0 +1,12 @@
+{
+  "kind": "CHALLAN",
+  "challan_no": "CH-302",
+  "challan_date": "2026-03-25",
+  "challan_date_printed": "25-03-2026",
+  "po_ref": "AR/PO/771",
+  "dispatched_qty": "1200",
+  "accepted_qty": "1200",
+  "rejected_qty": "0",
+  "rejection_reason": "",
+  "received_by": "Stores Officer Bhiwandi"
+}

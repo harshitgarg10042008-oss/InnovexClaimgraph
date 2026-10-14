@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
     LLM_EXTRACT_MODEL: str = "openai/gpt-oss-120b"
     LLM_CLASSIFY_MODEL: str = "openai/gpt-oss-20b"
+    LLM_VISION_MODEL: str = "llama-3.2-11b-vision-preview"
     LLM_API_KEY: str = ""
     LLM_MODE: str = "replay"  # 'live' or 'replay'
     LLM_MAX_CONCURRENCY: int = 2
@@ -49,6 +50,8 @@ def get_settings() -> Settings:
         s.LLM_EXTRACT_MODEL = "openai/gpt-oss-120b"
     if not s.LLM_CLASSIFY_MODEL:
         s.LLM_CLASSIFY_MODEL = "openai/gpt-oss-20b"
+    if not s.LLM_VISION_MODEL:
+        s.LLM_VISION_MODEL = "llama-3.2-11b-vision-preview"
     if not s.LLM_PROVIDER:
         s.LLM_PROVIDER = "groq"
     if not s.LLM_BASE_URL:

@@ -1,0 +1,13 @@
+{
+  "kind": "PO",
+  "po_no": "NF/PO/118",
+  "po_date": "2026-03-05",
+  "po_date_printed": "05-03-2026",
+  "credit_days": 30,
+  "supplier_gstin": "29CCCCC2222C1Z8",
+  "buyer_gstin": "06DDDDD3333D1Z1",
+  "qty": "2000",
+  "rate": "36.5",
+  "taxable_total": "73000",
+  "grand_total": "86140"
+}

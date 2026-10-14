@@ -1,4 +1,6 @@
+import base64
 import hashlib
+import io
 import json
 import logging
 import re
@@ -8,6 +10,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from openai import APIConnectionError, APIStatusError, OpenAI, RateLimitError
+from PIL import Image
 from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
@@ -177,6 +180,117 @@ class LLMClient:
                 model=target_model,
                 cache_key=cache_key,
             )
+
+    def complete_vision_json(
+        self,
+        system: str,
+        user: str,
+        image_bytes_or_path: bytes | str | Path,
+        pydantic_model: type[T],
+        model: str | None = None,
+        doc_hash: str | None = None,
+        page_no: int = 1,
+    ) -> T | None:
+        target_model = model or settings.LLM_VISION_MODEL or "llama-3.2-11b-vision-preview"
+
+        # Read image bytes
+        if isinstance(image_bytes_or_path, str | Path):
+            with open(image_bytes_or_path, "rb") as f:
+                img_bytes = f.read()
+        else:
+            img_bytes = image_bytes_or_path
+
+        effective_doc_hash = doc_hash or hashlib.sha256(img_bytes).hexdigest()
+        cache_key = self._get_cache_key(
+            doc_hash=f"{effective_doc_hash}_vision_page_{page_no}",
+            page_range=str(page_no),
+            model=target_model,
+        )
+
+        # 1. Check cache
+        cached_data = self.read_cache(cache_key)
+        if cached_data is not None:
+            try:
+                return pydantic_model.model_validate(cached_data)
+            except ValidationError as e:
+                logger.warning(f"Cached vision data invalid for {pydantic_model.__name__}: {e}")
+                if settings.LLM_MODE == "replay":
+                    raise
+
+        if settings.LLM_MODE == "replay":
+            raise LLMCacheMissError(
+                f"LLM vision cache miss for key '{cache_key}' (model={target_model}, page={page_no}) "
+                f"while LLM_MODE=replay. Live API calls are prohibited in replay mode."
+            )
+
+        if not settings.LLM_API_KEY.strip():
+            logger.warning("LLM_API_KEY is empty. Skipping live vision LLM call.")
+            return None
+
+        # Downscale image to max 1280px to respect limits
+        try:
+            pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            pil_img.thumbnail((1280, 1280))
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=85)
+            downscaled_bytes = buf.getvalue()
+        except Exception as e:
+            logger.warning(f"Failed to downscale image for vision: {e}. Using raw bytes.")
+            downscaled_bytes = img_bytes
+
+        base64_img = base64.b64encode(downscaled_bytes).decode("utf-8")
+        data_uri = f"data:image/jpeg;base64,{base64_img}"
+
+        user_content: list[dict[str, Any]] = [
+            {"type": "text", "text": user},
+            {
+                "type": "image_url",
+                "image_url": {"url": data_uri},
+            },
+        ]
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ]
+
+        with self.semaphore:
+            raw_content = self._call_chat_completion(
+                messages=messages, model=target_model, pydantic_model=pydantic_model
+            )
+            if raw_content is None:
+                return None
+            try:
+                parsed_json = json.loads(raw_content)
+                validated = pydantic_model.model_validate(parsed_json)
+                self.write_cache(cache_key, validated.model_dump(mode="json"))
+                return validated
+            except (json.JSONDecodeError, ValidationError) as err:
+                logger.warning(f"Vision response failed validation ({err}). Retrying once...")
+                retry_messages = [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_content},
+                    {"role": "assistant", "content": raw_content},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Your previous output failed schema validation: {str(err)}.\n"
+                            f"Please fix and output valid JSON conforming to requested schema."
+                        ),
+                    },
+                ]
+                retry_raw = self._call_chat_completion(
+                    messages=retry_messages, model=target_model, pydantic_model=pydantic_model
+                )
+                if retry_raw is None:
+                    return None
+                try:
+                    retry_json = json.loads(retry_raw)
+                    validated = pydantic_model.model_validate(retry_json)
+                    self.write_cache(cache_key, validated.model_dump(mode="json"))
+                    return validated
+                except (json.JSONDecodeError, ValidationError) as final_err:
+                    logger.error(f"Retry vision validation failed: {final_err}")
+                    return None
 
     def _call_with_retry_and_validation(
         self,

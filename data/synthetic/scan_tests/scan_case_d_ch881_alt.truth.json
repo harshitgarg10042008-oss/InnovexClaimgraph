@@ -1,0 +1,12 @@
+{
+  "kind": "CHALLAN",
+  "challan_no": "CH-881",
+  "challan_date": "2026-05-12",
+  "challan_date_printed": "12-05-2026",
+  "po_ref": "OM/PO/5540",
+  "dispatched_qty": "1000",
+  "accepted_qty": "980",
+  "rejected_qty": "20",
+  "rejection_reason": "thread-damaged",
+  "received_by": "K. S. Verma Gate 2"
+}

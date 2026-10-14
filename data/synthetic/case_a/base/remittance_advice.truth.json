@@ -1,0 +1,10 @@
+{
+  "kind": "REMITTANCE",
+  "remittance_no": "REM-2026-0881",
+  "remittance_date": "2026-06-30",
+  "remittance_date_printed": "30-06-2026",
+  "gross_amount": "200000",
+  "tds_amount": "2000",
+  "net_amount": "198000",
+  "utr": "UTRB26181049281"
+}

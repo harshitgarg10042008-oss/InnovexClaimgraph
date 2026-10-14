@@ -1,0 +1,37 @@
+{
+  "kind": "BANK_STATEMENT",
+  "account_holder": "Sharma Auto Components",
+  "account_no": "10492810029",
+  "period_from": "2026-06-01",
+  "period_to": "2026-07-10",
+  "period_from_printed": "01-06-2026",
+  "period_to_printed": "10-07-2026",
+  "credit": "198000",
+  "utr": "UTRB26181049281",
+  "transactions": [
+    {
+      "date": "05-06-2026",
+      "narration": "OPENING BALANCE",
+      "balance": 142500.0
+    },
+    {
+      "date": "15-06-2026",
+      "narration": "NEFT-RAW MATERIAL STEEL-RAW/881",
+      "debit": 85000.0,
+      "balance": 57500.0
+    },
+    {
+      "date": "30-06-2026",
+      "narration": "CMS/PART PAY INV-7731/MERIDIAN MOTORS PVT LTD",
+      "utr": "UTRB26181049281",
+      "credit": 198000.0,
+      "balance": 255500.0
+    },
+    {
+      "date": "05-07-2026",
+      "narration": "ELECTRICITY BILL TPDDL",
+      "debit": 18200.0,
+      "balance": 237300.0
+    }
+  ]
+}

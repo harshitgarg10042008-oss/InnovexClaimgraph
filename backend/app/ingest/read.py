@@ -30,8 +30,9 @@ class PageReadResult(BaseModel):
 
 def preprocess_image_for_ocr(
     img_bgr_or_rgb: np.ndarray,
+    upscale: bool = True,
 ) -> tuple[np.ndarray, float]:
-    """Applies grayscale, contrast enhancement (CLAHE), Hough deskew, and adaptive threshold.
+    """Applies grayscale, contrast enhancement (CLAHE), Hough deskew, 2x upscale, and adaptive threshold.
 
     Returns the processed binary image and the detected skew angle in degrees.
     """
@@ -64,6 +65,9 @@ def preprocess_image_for_ocr(
         contrast, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
     )
 
+    if upscale:
+        deskewed = cv2.resize(deskewed, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+
     # 3. Adaptive thresholding for crisp OCR binarization
     thresh = cv2.adaptiveThreshold(
         deskewed, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 10
@@ -80,6 +84,9 @@ class OcrEngine(ABC):
 
 
 class TesseractOcrEngine(OcrEngine):
+    def __init__(self, psm: int = 6):
+        self.psm = psm
+
     def read(self, image: Image.Image | np.ndarray) -> tuple[str, list[WordBox]]:
         if isinstance(image, Image.Image):
             np_img = np.array(image.convert("RGB"))
@@ -89,7 +96,11 @@ class TesseractOcrEngine(OcrEngine):
         processed_img, _ = preprocess_image_for_ocr(np_img)
         h, w = processed_img.shape[:2]
 
-        data = pytesseract.image_to_data(processed_img, output_type=Output.DICT)
+        data = pytesseract.image_to_data(
+            processed_img,
+            config=f"--psm {self.psm}",
+            output_type=Output.DICT,
+        )
 
         word_boxes: list[WordBox] = []
         words_text: list[str] = []

@@ -1,4 +1,4 @@
-﻿"""
+"""
 M3 Ingestion Pipeline - Pytest golden tests (replay mode only, no live API).
 
 Verifies:
@@ -15,7 +15,6 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,7 +56,7 @@ def test_read_pdf_page_image_written(tmp_path):
 
     synth = get_synthetic_dir()
     pdf = synth / "case_a/base/CH_118.pdf"
-    results = read_document_pages(pdf, "test_read_ch", tmp_path)
+    _results = read_document_pages(pdf, "test_read_ch", tmp_path)
 
     img_path = tmp_path / "pages" / "test_read_ch" / "page_1.png"
     assert img_path.exists(), "Page PNG should have been written to storage"
@@ -318,9 +317,10 @@ class TestLocateSourceText:
 
 class TestLLMClientReplay:
     def test_replay_mode_raises_on_cache_miss(self, tmp_path, monkeypatch):
-        from app.llm.client import LLMClient
-        from app.core.config import Settings
         from pydantic import BaseModel
+
+        from app.core.config import Settings
+        from app.llm.client import LLMClient
 
         class DummyModel(BaseModel):
             value: str = "x"
@@ -335,7 +335,9 @@ class TestLLMClientReplay:
         monkeypatch.setattr(client, "_get_cache_dir", lambda: tmp_path / "cache")
         monkeypatch.setattr(client, "_get_synthetic_cache_dir", lambda: tmp_path / "syn")
 
-        with pytest.raises(Exception):  # LLMCacheMissError
+        from app.llm.client import LLMCacheMissError
+
+        with pytest.raises(LLMCacheMissError):
             client.complete_json(
                 system="sys",
                 user="user",
@@ -369,9 +371,9 @@ def test_m3_digital_accuracy_above_85_pct(tmp_path):
     scans is a separate concern covered by the Tesseract path.
     """
     from app.ingest.classify import classify_document
+    from app.ingest.eval import load_expected_ground_truth
     from app.ingest.extract import extract_document_facts
     from app.ingest.read import read_document_pages
-    from app.ingest.eval import load_expected_ground_truth
 
     synth = get_synthetic_dir()
     ground_truth = load_expected_ground_truth(synth)

@@ -1,0 +1,11 @@
+{
+  "kind": "CHALLAN",
+  "challan_no": "CH-118",
+  "challan_date": "2026-04-20",
+  "challan_date_printed": "20-04-2026",
+  "po_ref": "MM/PO/2291",
+  "dispatched_qty": "460",
+  "accepted_qty": "460",
+  "rejected_qty": "0",
+  "received_by": "R. Kulkarni"
+}

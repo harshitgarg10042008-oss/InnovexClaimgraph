@@ -69,7 +69,10 @@ def process_document(document_id: uuid.UUID, db: Session) -> Document:
             f"--- Page {pr.page_no} ---\n{pr.text}" for pr in page_results
         )
 
-        class_res = classify_document(full_doc_text, doc_hash=doc.sha256)
+        is_scan = file_path.suffix.lower() in (".jpg", ".jpeg", ".png")
+        effective_doc_hash = doc.sha256 if is_scan else None
+
+        class_res = classify_document(full_doc_text, doc_hash=effective_doc_hash)
         doc.kind = class_res.kind
         db.commit()
 
@@ -81,12 +84,14 @@ def process_document(document_id: uuid.UUID, db: Session) -> Document:
             pr.page_no: pr.words for pr in page_results
         }
 
+        page_image_paths = [storage_base / pr.image_rel_path for pr in page_results]
         extracted_facts = extract_document_facts(
             kind=doc.kind,
             full_text=full_doc_text,
             pages_words=pages_words,
-            doc_hash=doc.sha256,
+            doc_hash=effective_doc_hash,
             page_count=len(page_results),
+            page_images=page_image_paths,
         )
 
         db_facts = save_facts_to_db(

@@ -1,0 +1,25 @@
+{
+  "kind": "BANK_STATEMENT",
+  "account_holder": "Raman Fasteners",
+  "account_no": "88192001928",
+  "period_from": "2026-07-01",
+  "period_to": "2026-07-31",
+  "period_from_printed": "01-07-2026",
+  "period_to_printed": "31-07-2026",
+  "credit": "10000",
+  "utr": "UTRORB261960012",
+  "transactions": [
+    {
+      "date": "01-07-2026",
+      "narration": "OPENING BALANCE",
+      "balance": 42000.0
+    },
+    {
+      "date": "15-07-2026",
+      "narration": "NEFT PART PAY INV-1042 - ORBIT MACHINES",
+      "utr": "UTRORB261960012",
+      "credit": 10000.0,
+      "balance": 52000.0
+    }
+  ]
+}

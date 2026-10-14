@@ -1,0 +1,33 @@
+{
+  "kind": "BANK_STATEMENT",
+  "account_holder": "Kaveri Packaging Works",
+  "account_no": "22910048102",
+  "period_from": "2026-03-01",
+  "period_to": "2026-05-15",
+  "period_from_printed": "01-03-2026",
+  "period_to_printed": "15-05-2026",
+  "credit": "50000",
+  "utr": "UTRNF2612204891",
+  "transactions": [
+    {
+      "date": "01-03-2026",
+      "narration": "NEFT ADVANCE FOR PO NF/PO/118 - NORTHLINE FOODS",
+      "utr": "UTRNF2606010029",
+      "credit": 20000.0,
+      "balance": 45000.0
+    },
+    {
+      "date": "15-04-2026",
+      "narration": "WAGES PEENYA FACTORY",
+      "debit": 25000.0,
+      "balance": 20000.0
+    },
+    {
+      "date": "02-05-2026",
+      "narration": "RTGS PART PAYMENT INV KP/INV/0412 - NORTHLINE FOODS",
+      "utr": "UTRNF2612204891",
+      "credit": 50000.0,
+      "balance": 70000.0
+    }
+  ]
+}

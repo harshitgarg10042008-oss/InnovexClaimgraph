@@ -1,0 +1,15 @@
+{
+  "kind": "INVOICE",
+  "invoice_no": "KP/INV/0412",
+  "invoice_date": "2026-03-19",
+  "invoice_date_printed": "19-03-2026",
+  "po_ref": "NF/PO/118",
+  "challan_ref": "KP/CH/045",
+  "supplier_gstin": "29CCCCC2222C1Z8",
+  "buyer_gstin": "06DDDDD3333D1Z1",
+  "taxable_total": "73000",
+  "gst_amount": "13140",
+  "grand_total": "86140",
+  "qty": "2000",
+  "rate": "36.5"
+}

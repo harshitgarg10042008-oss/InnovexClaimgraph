@@ -18,6 +18,35 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from datetime import datetime
+
+
+def to_iso_date(date_str: str) -> str:
+    s = str(date_str).split(",")[0].strip()
+    for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%d %b %Y"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return s
+
+
+def normalise_activity(act: str) -> str:
+    s = str(act).strip().lower()
+    if any(k in s for k in ("manufactur", "mfg", "production")):
+        return "manufacturer"
+    if any(k in s for k in ("service", "servicing")):
+        return "service"
+    if any(k in s for k in ("trad", "retail", "wholesale")):
+        return "trader"
+    return s
+
+
+def write_truth_file(doc_path: Path, data: dict):
+    truth_path = doc_path.with_name(f"{doc_path.stem}.truth.json")
+    with open(truth_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 # Set deterministic seed
@@ -201,6 +230,17 @@ def gen_udyam_cert(out_path: Path, comp_name: str, udyam_no: str, reg_date: str,
         Paragraph("<i>* This is a computer generated certificate under MSMED Act 2006. Verification can be done at udyamregistration.gov.in</i>", SUBTITLE_STYLE),
     ]
     create_pdf(out_path, story)
+    write_truth_file(out_path, {
+        "kind": "UDYAM_CERT",
+        "udyam_no": udyam_no,
+        "comp_name": comp_name,
+        "registration_date": to_iso_date(reg_date),
+        "registration_date_printed": reg_date,
+        "enterprise_type": ent_type.capitalize(),
+        "activity": activity.capitalize(),
+        "activity_normalised": normalise_activity(activity),
+        "supplier_gstin": gstin,
+    })
 
 
 def gen_bank_statement(out_path: Path, comp_name: str, acc_no: str, period: str, entries: list[dict]):
@@ -227,6 +267,26 @@ def gen_bank_statement(out_path: Path, comp_name: str, acc_no: str, period: str,
     )
     story.append(t)
     create_pdf(out_path, story)
+
+    parts = period.split(" to ")
+    p_from = to_iso_date(parts[0].strip()) if len(parts) == 2 else period
+    p_to = to_iso_date(parts[1].strip()) if len(parts) == 2 else period
+    credits = [e for e in entries if e.get("credit")]
+    primary_credit = str(int(credits[-1]["credit"])) if credits else None
+    primary_utr = credits[-1].get("utr") if credits else None
+
+    write_truth_file(out_path, {
+        "kind": "BANK_STATEMENT",
+        "account_holder": comp_name,
+        "account_no": acc_no.replace("A/C", "").strip(),
+        "period_from": p_from,
+        "period_to": p_to,
+        "period_from_printed": parts[0].strip() if len(parts) == 2 else "",
+        "period_to_printed": parts[1].strip() if len(parts) == 2 else "",
+        "credit": primary_credit,
+        "utr": primary_utr,
+        "transactions": entries,
+    })
 
 
 # ==============================================================================
@@ -280,6 +340,19 @@ def build_case_a():
         Paragraph("<b>Terms & Conditions:</b><br/>1. Delivery: To Chakan Works within 20 days.<br/>2. Payment Terms: <b>45 days from receipt of goods</b>.<br/>3. Delivery Challan and Test Certificate must accompany consignment.", BODY_STYLE),
     ]
     create_pdf(base_dir / "PO_MM_PO_2291.pdf", story)
+    write_truth_file(base_dir / "PO_MM_PO_2291.pdf", {
+        "kind": "PO",
+        "po_no": "MM/PO/2291",
+        "po_date": "2026-04-02",
+        "po_date_printed": "02-04-2026",
+        "credit_days": 45,
+        "supplier_gstin": "07AAAAA0000A1Z5",
+        "buyer_gstin": "27BBBBB1111B1Z2",
+        "qty": "500",
+        "rate": "820",
+        "taxable_total": "410000",
+        "grand_total": "483800",
+    })
 
     # 3. Delivery Challan CH-118
     story = [
@@ -300,6 +373,17 @@ def build_case_a():
         make_stamp_box("MERIDIAN MOTORS PVT LTD<br/>SECURITY & STORES CHAKAN<br/>RECEIVED IN GOOD CONDITION (460 PCS)<br/>DATE: 20-04-2026 | SIGN: R. Kulkarni", "#1E6B57"),
     ]
     create_pdf(base_dir / "CH_118.pdf", story)
+    write_truth_file(base_dir / "CH_118.pdf", {
+        "kind": "CHALLAN",
+        "challan_no": "CH-118",
+        "challan_date": "2026-04-20",
+        "challan_date_printed": "20-04-2026",
+        "po_ref": "MM/PO/2291",
+        "dispatched_qty": "460",
+        "accepted_qty": "460",
+        "rejected_qty": "0",
+        "received_by": "R. Kulkarni",
+    })
 
     # 4. Tax Invoice INV-7731
     story = [
@@ -329,6 +413,22 @@ def build_case_a():
         Paragraph("<b>Bank Details for NEFT/RTGS:</b><br/>Bank: State Bank of Commerce | A/C No: 10492810029 | IFSC: SBOC0001429", BODY_STYLE),
     ]
     create_pdf(base_dir / "INV_7731.pdf", story)
+    write_truth_file(base_dir / "INV_7731.pdf", {
+        "kind": "INVOICE",
+        "invoice_no": "INV-7731",
+        "invoice_date": "2026-04-22",
+        "invoice_date_printed": "22-04-2026",
+        "po_ref": "MM/PO/2291",
+        "challan_ref": "CH-118",
+        "supplier_gstin": "07AAAAA0000A1Z5",
+        "buyer_gstin": "27BBBBB1111B1Z2",
+        "taxable_total": "410000",
+        "gst_amount": "73800",
+        "grand_total": "483800",
+        "qty": "500",
+        "rate": "820",
+        "amount": "410000",
+    })
 
     # 5. Bank Statement
     gen_bank_statement(
@@ -359,6 +459,16 @@ def build_case_a():
         Paragraph("<b>Remarks:</b> Part payment approved against accepted material. TDS Form 16A will be issued quarterly.", BODY_STYLE),
     ]
     create_pdf(base_dir / "remittance_advice.pdf", story)
+    write_truth_file(base_dir / "remittance_advice.pdf", {
+        "kind": "REMITTANCE",
+        "remittance_no": "REM-2026-0881",
+        "remittance_date": "2026-06-30",
+        "remittance_date_printed": "30-06-2026",
+        "gross_amount": "200000",
+        "tds_amount": "2000",
+        "net_amount": "198000",
+        "utr": "UTRB26181049281",
+    })
 
     # ADDONS 1: Email Thread PDF
     story = [
@@ -382,6 +492,12 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
 """, SUBTITLE_STYLE),
     ]
     create_pdf(addons_dir / "01_backorder_email.pdf", story)
+    write_truth_file(addons_dir / "01_backorder_email.pdf", {
+        "kind": "EMAIL",
+        "communication_kind": "backorder",
+        "message_date": "2026-04-25",
+        "message_date_printed": "25 Apr 2026, 11:42 AM",
+    })
 
     # ADDONS 2: Challan CH-131 PDF
     story = [
@@ -400,6 +516,17 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
         make_stamp_box("MERIDIAN MOTORS PVT LTD<br/>STORES CHAKAN - RECEIVED (40 PCS)<br/>TOTAL PO FULFILLED (500/500)<br/>DATE: 09-05-2026 | SIGN: R. Kulkarni", "#1E6B57"),
     ]
     create_pdf(addons_dir / "02_challan_ch131.pdf", story)
+    write_truth_file(addons_dir / "02_challan_ch131.pdf", {
+        "kind": "CHALLAN",
+        "challan_no": "CH-131",
+        "challan_date": "2026-05-09",
+        "challan_date_printed": "09-05-2026",
+        "po_ref": "MM/PO/2291",
+        "dispatched_qty": "40",
+        "accepted_qty": "40",
+        "rejected_qty": "0",
+        "received_by": "R. Kulkarni",
+    })
 
     # JSON 1: expected_base.json
     base_json = {
@@ -617,6 +744,19 @@ def build_case_b():
         Paragraph("<b>Terms:</b><br/>1. Payment: <b>30 days credit</b> from delivery date.<br/>2. Advance of Rs 20,000.00 payable with order against proforma.", BODY_STYLE),
     ]
     create_pdf(base_dir / "PO_NF_PO_118.pdf", story)
+    write_truth_file(base_dir / "PO_NF_PO_118.pdf", {
+        "kind": "PO",
+        "po_no": "NF/PO/118",
+        "po_date": "2026-03-05",
+        "po_date_printed": "05-03-2026",
+        "credit_days": 30,
+        "supplier_gstin": "29CCCCC2222C1Z8",
+        "buyer_gstin": "06DDDDD3333D1Z1",
+        "qty": "2000",
+        "rate": "36.5",
+        "taxable_total": "73000",
+        "grand_total": "86140",
+    })
 
     # Challan KP/CH/045
     story = [
@@ -632,9 +772,20 @@ def build_case_b():
             [0.5 * inch, 3.5 * inch, 1.0 * inch, 1.0 * inch, 1.0 * inch],
         ),
         Spacer(1, 30),
-        make_stamp_box("NORTHLINE FOODS LTD<br/>CENTRAL WAREHOUSE KUNDLI<br/>VERIFIED & STAMPED (2000 PCS)<br/>DATE: 18-03-2026 | STAMP: VERIFIED", "#1E6B57"),
+        make_stamp_box("NORTHLINE FOODS LTD<br/>CENTRAL WAREHOUSE KUNDLI<br/>VERIFIED & STAMPED (2000 PCS)<br/>DATE: 18-03-2026 | SIGN: Stores Kundli", "#1E6B57"),
     ]
     create_pdf(base_dir / "KP_CH_045.pdf", story)
+    write_truth_file(base_dir / "KP_CH_045.pdf", {
+        "kind": "CHALLAN",
+        "challan_no": "KP/CH/045",
+        "challan_date": "2026-03-18",
+        "challan_date_printed": "18-03-2026",
+        "po_ref": "NF/PO/118",
+        "dispatched_qty": "2000",
+        "accepted_qty": "2000",
+        "rejected_qty": "0",
+        "received_by": "Stores Kundli",
+    })
 
     # Invoice KP/INV/0412
     story = [
@@ -663,6 +814,21 @@ def build_case_b():
         Paragraph("<i>Note: Advance of Rs 20,000.00 received on 01-03-2026 not deducted on invoice face.</i>", SUBTITLE_STYLE),
     ]
     create_pdf(base_dir / "KP_INV_0412.pdf", story)
+    write_truth_file(base_dir / "KP_INV_0412.pdf", {
+        "kind": "INVOICE",
+        "invoice_no": "KP/INV/0412",
+        "invoice_date": "2026-03-19",
+        "invoice_date_printed": "19-03-2026",
+        "po_ref": "NF/PO/118",
+        "challan_ref": "KP/CH/045",
+        "supplier_gstin": "29CCCCC2222C1Z8",
+        "buyer_gstin": "06DDDDD3333D1Z1",
+        "taxable_total": "73000",
+        "gst_amount": "13140",
+        "grand_total": "86140",
+        "qty": "2000",
+        "rate": "36.5",
+    })
 
     # Duplicate Invoice KP/INV/0412-A
     story_dup = [
@@ -689,6 +855,18 @@ def build_case_b():
         ),
     ]
     create_pdf(base_dir / "KP_INV_0412_A.pdf", story_dup)
+    write_truth_file(base_dir / "KP_INV_0412_A.pdf", {
+        "kind": "INVOICE",
+        "invoice_no": "KP/INV/0412-A",
+        "invoice_date": "2026-03-28",
+        "invoice_date_printed": "28-03-2026",
+        "po_ref": "NF/PO/118",
+        "challan_ref": "KP/CH/045",
+        "supplier_gstin": "29CCCCC2222C1Z8",
+        "buyer_gstin": "06DDDDD3333D1Z1",
+        "taxable_total": "73000",
+        "grand_total": "86140",
+    })
 
     # Bank statement showing advance and part payment
     gen_bank_statement(
@@ -872,6 +1050,19 @@ def build_case_c():
         Paragraph("<b>Credit Period:</b> 30 days from delivery.", BODY_STYLE),
     ]
     create_pdf(base_dir / "PO_AR_PO_771.pdf", story)
+    write_truth_file(base_dir / "PO_AR_PO_771.pdf", {
+        "kind": "PO",
+        "po_no": "AR/PO/771",
+        "po_date": "2026-03-10",
+        "po_date_printed": "10-03-2026",
+        "credit_days": 30,
+        "supplier_gstin": "24EEEEE4444E1Z4",
+        "buyer_gstin": "27FFFFF5555F1Z7",
+        "qty": "1200",
+        "rate": "210",
+        "taxable_total": "252000",
+        "grand_total": "264600",
+    })
 
     # Challan CH-302 dated 25-03-2026
     story = [
@@ -887,9 +1078,20 @@ def build_case_c():
             [0.5 * inch, 3.5 * inch, 1.0 * inch, 1.0 * inch, 1.0 * inch],
         ),
         Spacer(1, 30),
-        make_stamp_box("ASHOKA RETAIL CENTRAL WAREHOUSE BHIWANDI<br/>RECEIVED IN FULL (1200 M)<br/>DATE: 25-03-2026 | SIGN: Stores Officer", "#1E6B57"),
+        make_stamp_box("ASHOKA RETAIL CENTRAL WAREHOUSE BHIWANDI<br/>RECEIVED IN FULL (1200 M)<br/>DATE: 25-03-2026 | SIGN: Stores Officer Bhiwandi", "#1E6B57"),
     ]
     create_pdf(base_dir / "CH_302.pdf", story)
+    write_truth_file(base_dir / "CH_302.pdf", {
+        "kind": "CHALLAN",
+        "challan_no": "CH-302",
+        "challan_date": "2026-03-25",
+        "challan_date_printed": "25-03-2026",
+        "po_ref": "AR/PO/771",
+        "dispatched_qty": "1200",
+        "accepted_qty": "1200",
+        "rejected_qty": "0",
+        "received_by": "Stores Officer Bhiwandi",
+    })
 
     # Invoice INV-901 dated 26-03-2026
     story = [
@@ -916,6 +1118,21 @@ def build_case_c():
         ),
     ]
     create_pdf(base_dir / "INV_901.pdf", story)
+    write_truth_file(base_dir / "INV_901.pdf", {
+        "kind": "INVOICE",
+        "invoice_no": "INV-901",
+        "invoice_date": "2026-03-26",
+        "invoice_date_printed": "26-03-2026",
+        "po_ref": "AR/PO/771",
+        "challan_ref": "CH-302",
+        "supplier_gstin": "24EEEEE4444E1Z4",
+        "buyer_gstin": "27FFFFF5555F1Z7",
+        "taxable_total": "252000",
+        "gst_amount": "12600",
+        "grand_total": "264600",
+        "qty": "1200",
+        "rate": "210",
+    })
 
     # expected.json for Case C
     expected_c = {
@@ -1061,7 +1278,7 @@ def gen_messy_scan_jpg(out_path: Path):
     sdraw.text((30, 25), "ORBIT MACHINES PVT LTD", fill=(25, 60, 160, 240))
     sdraw.text((30, 50), "GOODS INWARD GATE 2 - STORES", fill=(25, 60, 160, 240))
     sdraw.text((30, 75), "VERIFIED & ACCEPTED: 980 PCS ONLY", fill=(25, 60, 160, 255))
-    sdraw.text((30, 100), "DATE: 12-05-2026 | SIGN: K. S. Verma", fill=(25, 60, 160, 240))
+    sdraw.text((30, 100), "DATE: 12-05-2026 | SIGN: K. S. Verma Gate 2", fill=(25, 60, 160, 240))
 
     stamp_rot = stamp_img.rotate(4.5, expand=True, resample=Image.BICUBIC)
     img.paste(stamp_rot, (720, y_table + 40), stamp_rot)
@@ -1090,6 +1307,18 @@ def gen_messy_scan_jpg(out_path: Path):
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.convert("RGB").save(out_path, format="JPEG", quality=75)
+    write_truth_file(out_path, {
+        "kind": "CHALLAN",
+        "challan_no": "CH-881",
+        "challan_date": "2026-05-12",
+        "challan_date_printed": "12-05-2026",
+        "po_ref": "OM/PO/5540",
+        "dispatched_qty": "1000",
+        "accepted_qty": "980",
+        "rejected_qty": "20",
+        "rejection_reason": "thread-damaged",
+        "received_by": "K. S. Verma Gate 2",
+    })
 
 
 def build_case_d():
@@ -1136,6 +1365,19 @@ def build_case_d():
         Paragraph("<b>Terms:</b> 30 days credit from receipt of materials.", BODY_STYLE),
     ]
     create_pdf(base_dir / "PO_OM_PO_5540.pdf", story)
+    write_truth_file(base_dir / "PO_OM_PO_5540.pdf", {
+        "kind": "PO",
+        "po_no": "OM/PO/5540",
+        "po_date": "2026-05-06",
+        "po_date_printed": "06-05-2026",
+        "credit_days": 30,
+        "supplier_gstin": "03GGGGG6666G1Z9",
+        "buyer_gstin": "08HHHHH7777H1Z3",
+        "qty": "1000",
+        "rate": "14",
+        "taxable_total": "14000",
+        "grand_total": "16520",
+    })
 
     # Messy Scan Challan JPG
     gen_messy_scan_jpg(base_dir / "challan_ch_881.jpg")
@@ -1165,6 +1407,21 @@ def build_case_d():
         ),
     ]
     create_pdf(base_dir / "INV_1042.pdf", story)
+    write_truth_file(base_dir / "INV_1042.pdf", {
+        "kind": "INVOICE",
+        "invoice_no": "INV-1042",
+        "invoice_date": "2026-05-22",
+        "invoice_date_printed": "22-05-2026",
+        "po_ref": "OM/PO/5540",
+        "challan_ref": "CH-881",
+        "supplier_gstin": "03GGGGG6666G1Z9",
+        "buyer_gstin": "08HHHHH7777H1Z3",
+        "taxable_total": "14000",
+        "gst_amount": "2520",
+        "grand_total": "16520",
+        "qty": "1000",
+        "rate": "14",
+    })
 
     # Bank statement: Payment of Rs 10,000 on 15-07-2026
     gen_bank_statement(
@@ -1277,6 +1534,248 @@ def build_case_d():
         json.dump(expected_d, f, indent=2)
 
 
+
+
+def gen_challan_scan_jpg(
+    out_path: Path,
+    supplier_title: str,
+    supplier_sub: str,
+    challan_no: str,
+    challan_date: str,
+    buyer_title: str,
+    buyer_addr: str,
+    buyer_gstin: str,
+    po_ref: str,
+    item_desc: str,
+    hsn: str,
+    dispatched_qty: str,
+    accepted_qty: str,
+    rejected_qty: str = "0",
+    rejection_note: str | None = None,
+    stamp_lines: list[str] | None = None,
+    tilt_deg: float = 2.0,
+    blur_radius: float = 0.6,
+    noise_amp: int = 7,
+    contrast: float = 1.05,
+    stamp_rot: float = 3.5,
+    stamp_pos: tuple[int, int] = (710, 360),
+    truth_received_by: str = "Stores",
+):
+    width, height = 1240, 1754
+    img = Image.new("RGB", (width, height), color=(248, 247, 243))
+    draw = ImageDraw.Draw(img)
+
+    # Header
+    draw.text((60, 60), supplier_title, fill=(30, 30, 30))
+    draw.text((60, 90), supplier_sub, fill=(90, 90, 90))
+    draw.text((width - 380, 60), "DELIVERY CHALLAN", fill=(30, 30, 30))
+    draw.text((width - 380, 90), f"Challan No: {challan_no}", fill=(30, 30, 30))
+    draw.text((width - 380, 115), f"Date: {challan_date}", fill=(30, 30, 30))
+
+    # Divider
+    draw.line([(50, 150), (width - 50, 150)], fill=(50, 50, 50), width=2)
+
+    # Consignee box
+    draw.rectangle([(50, 170), (width - 50, 290)], outline=(180, 180, 180), width=1)
+    draw.text((65, 185), f"Consignee / Buyer: {buyer_title}", fill=(30, 30, 30))
+    draw.text((65, 210), buyer_addr, fill=(60, 60, 60))
+    draw.text((65, 235), f"GSTIN: {buyer_gstin}", fill=(60, 60, 60))
+    draw.text((65, 260), f"PO Ref: {po_ref}", fill=(30, 30, 30))
+
+    # Items table
+    y_table = 330
+    draw.rectangle([(50, y_table), (width - 50, y_table + 40)], fill=(235, 235, 230), outline=(100, 100, 100))
+    draw.text((65, y_table + 12), "Item", fill=(20, 20, 20))
+    draw.text((150, y_table + 12), "Description", fill=(20, 20, 20))
+    draw.text((550, y_table + 12), "HSN Code", fill=(20, 20, 20))
+    draw.text((750, y_table + 12), "Dispatched Qty", fill=(20, 20, 20))
+    draw.text((950, y_table + 12), "Accepted Qty", fill=(20, 20, 20))
+
+    y_row = y_table + 50
+    draw.text((65, y_row), "1", fill=(30, 30, 30))
+    draw.text((150, y_row), item_desc, fill=(30, 30, 30))
+    draw.text((550, y_row), hsn, fill=(30, 30, 30))
+    draw.text((750, y_row), f"{dispatched_qty} pcs", fill=(30, 30, 30))
+    draw.text((950, y_row), f"{accepted_qty} pcs", fill=(180, 30, 30) if rejected_qty != "0" else (30, 30, 30))
+
+    draw.line([(50, y_row + 35), (width - 50, y_row + 35)], fill=(200, 200, 200), width=1)
+    if rejection_note:
+        draw.text((65, y_row + 55), f"Note: {rejection_note}", fill=(90, 50, 50))
+
+    # Stamp
+    if stamp_lines:
+        stamp_img = Image.new("RGBA", (450, 150), (255, 255, 255, 0))
+        sdraw = ImageDraw.Draw(stamp_img)
+        sdraw.rectangle([(5, 5), (440, 140)], outline=(25, 60, 160, 220), width=4)
+        for idx, line_text in enumerate(stamp_lines):
+            sdraw.text((30, 25 + idx * 25), line_text, fill=(25, 60, 160, 240))
+        s_rot = stamp_img.rotate(stamp_rot, expand=True, resample=Image.BICUBIC)
+        img.paste(s_rot, stamp_pos, s_rot)
+
+    # Paper noise & lighting gradient
+    pixels = img.load()
+    for y in range(0, height, 4):
+        for x in range(0, width, 4):
+            noise = random.randint(-noise_amp, noise_amp)
+            r, g, b = pixels[x, y]
+            grad = int((x / width) * 12 - (y / height) * 10)
+            pixels[x, y] = (
+                max(0, min(255, r + noise + grad)),
+                max(0, min(255, g + noise + grad)),
+                max(0, min(255, b + noise + grad)),
+            )
+
+    # Rotation
+    img = img.rotate(tilt_deg, expand=True, fillcolor=(230, 228, 220))
+    if blur_radius > 0:
+        img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+    if contrast != 1.0:
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(contrast)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    img.convert("RGB").save(out_path, format="JPEG", quality=75)
+
+    write_truth_file(out_path, {
+        "kind": "CHALLAN",
+        "challan_no": challan_no,
+        "challan_date": to_iso_date(challan_date),
+        "challan_date_printed": challan_date,
+        "po_ref": po_ref.split()[0] if " " in po_ref else po_ref,
+        "dispatched_qty": dispatched_qty,
+        "accepted_qty": accepted_qty,
+        "rejected_qty": rejected_qty,
+        "rejection_reason": "thread-damaged" if rejected_qty != "0" else "",
+        "received_by": truth_received_by,
+    })
+
+
+def build_scan_tests():
+    scan_dir = BASE_DIR / "scan_tests"
+    scan_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Variant A (Case A Challan CH-118 scan variant)
+    gen_challan_scan_jpg(
+        out_path=scan_dir / "scan_case_a_ch118.jpg",
+        supplier_title="SHARMA AUTO COMPONENTS",
+        supplier_sub="Mayapuri Phase II, New Delhi | Ph: +91-11-28114500",
+        challan_no="CH-118",
+        challan_date="20-04-2026",
+        buyer_title="Meridian Motors Pvt Ltd",
+        buyer_addr="Gat 204, Chakan MIDC Phase 3, Pune, Maharashtra",
+        buyer_gstin="27BBBBB1111B1Z2",
+        po_ref="MM/PO/2291 dated 02-04-2026",
+        item_desc="Brake bracket BB-210",
+        hsn="87082900",
+        dispatched_qty="460",
+        accepted_qty="460",
+        stamp_lines=[
+            "MERIDIAN MOTORS PVT LTD",
+            "SECURITY & STORES CHAKAN",
+            "VERIFIED & ACCEPTED: 460 PCS",
+            "DATE: 20-04-2026 | SIGN: R. Kulkarni",
+        ],
+        tilt_deg=1.5,
+        blur_radius=0.5,
+        noise_amp=6,
+        contrast=1.03,
+        stamp_rot=3.0,
+        stamp_pos=(710, 360),
+        truth_received_by="R. Kulkarni",
+    )
+
+    # 2. Variant B (Case B Challan KP/CH/045 scan variant)
+    gen_challan_scan_jpg(
+        out_path=scan_dir / "scan_case_b_kp_ch045.jpg",
+        supplier_title="KAVERI PACKAGING WORKS",
+        supplier_sub="Peenya Industrial Area 2nd Stage, Bengaluru | Tel: +91-80-28394411",
+        challan_no="KP/CH/045",
+        challan_date="18-03-2026",
+        buyer_title="Northline Foods Ltd",
+        buyer_addr="Plot 14, Kundli Food Park, Sonipat, Haryana",
+        buyer_gstin="06DDDDD3333D1Z1",
+        po_ref="NF/PO/118 dt. 05-03-2026",
+        item_desc="Corrugated master cartons 5-ply",
+        hsn="48191010",
+        dispatched_qty="2000",
+        accepted_qty="2000",
+        stamp_lines=[
+            "NORTHLINE FOODS LTD",
+            "CENTRAL WAREHOUSE KUNDLI",
+            "VERIFIED & STAMPED: 2000 PCS",
+            "DATE: 18-03-2026 | SIGN: Stores Kundli",
+        ],
+        tilt_deg=-2.0,
+        blur_radius=0.6,
+        noise_amp=7,
+        contrast=1.04,
+        stamp_rot=-3.5,
+        stamp_pos=(700, 380),
+        truth_received_by="Stores Kundli",
+    )
+
+    # 3. Variant C (Case C Challan CH-302 scan variant)
+    gen_challan_scan_jpg(
+        out_path=scan_dir / "scan_case_c_ch302.jpg",
+        supplier_title="TARA TEXTILES",
+        supplier_sub="Surat Mills: GIDC, Surat, Gujarat | Ph: 0261-2849100",
+        challan_no="CH-302",
+        challan_date="25-03-2026",
+        buyer_title="Ashoka Retail Pvt Ltd",
+        buyer_addr="Lower Parel, Mumbai, Maharashtra",
+        buyer_gstin="27FFFFF5555F1Z7",
+        po_ref="AR/PO/771 dated 10-03-2026",
+        item_desc="Premium cotton shirting fabric (60s count)",
+        hsn="52081190",
+        dispatched_qty="1200",
+        accepted_qty="1200",
+        stamp_lines=[
+            "ASHOKA RETAIL CENTRAL WAREHOUSE",
+            "RECEIVED IN FULL (1200 M)",
+            "DATE: 25-03-2026 | SIGN: Stores Officer Bhiwandi",
+        ],
+        tilt_deg=2.5,
+        blur_radius=0.7,
+        noise_amp=9,
+        contrast=1.06,
+        stamp_rot=4.0,
+        stamp_pos=(720, 360),
+        truth_received_by="Stores Officer Bhiwandi",
+    )
+
+    # 4. Variant D (Case D alternate scan)
+    gen_challan_scan_jpg(
+        out_path=scan_dir / "scan_case_d_ch881_alt.jpg",
+        supplier_title="RAMAN FASTENERS",
+        supplier_sub="Industrial Area-B, Ludhiana, Punjab | Ph: 0161-2531099",
+        challan_no="CH-881",
+        challan_date="12-05-2026",
+        buyer_title="Orbit Machines Pvt Ltd",
+        buyer_addr="Plot 88, Phase 2, Industrial Focal Point, Jaipur, Rajasthan",
+        buyer_gstin="08HHHHH7777H1Z3",
+        po_ref="OM/PO/5540 dated 06-05-2026",
+        item_desc="Hex Bolt M12 x 50mm (Grade 8.8)",
+        hsn="73181500",
+        dispatched_qty="1000",
+        accepted_qty="980",
+        rejected_qty="20",
+        rejection_note="20 pcs thread-damaged during unboxing; rejected at gate.",
+        stamp_lines=[
+            "ORBIT MACHINES PVT LTD",
+            "GOODS INWARD GATE 2 - STORES",
+            "VERIFIED & ACCEPTED: 980 PCS ONLY",
+            "DATE: 12-05-2026 | SIGN: K. S. Verma Gate 2",
+        ],
+        tilt_deg=-1.5,
+        blur_radius=0.55,
+        noise_amp=7,
+        contrast=1.04,
+        stamp_rot=-2.5,
+        stamp_pos=(730, 380),
+        truth_received_by="K. S. Verma Gate 2",
+    )
+
+
 def main():
     print("Generating synthetic demo cases (A, B, C, D)...")
     build_case_a()
@@ -1287,6 +1786,8 @@ def main():
     print("✓ Case C generated (base + expected.json)")
     build_case_d()
     print("✓ Case D generated (base + messy scan JPG + expected.json)")
+    build_scan_tests()
+    print("✓ Scan tests generated (4 scan variants + truth files)")
     print("All synthetic data generated successfully.")
 
 

@@ -1,0 +1,16 @@
+{
+  "kind": "INVOICE",
+  "invoice_no": "INV-7731",
+  "invoice_date": "2026-04-22",
+  "invoice_date_printed": "22-04-2026",
+  "po_ref": "MM/PO/2291",
+  "challan_ref": "CH-118",
+  "supplier_gstin": "07AAAAA0000A1Z5",
+  "buyer_gstin": "27BBBBB1111B1Z2",
+  "taxable_total": "410000",
+  "gst_amount": "73800",
+  "grand_total": "483800",
+  "qty": "500",
+  "rate": "820",
+  "amount": "410000"
+}

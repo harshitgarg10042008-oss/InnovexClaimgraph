@@ -1,0 +1,15 @@
+{
+  "kind": "INVOICE",
+  "invoice_no": "INV-901",
+  "invoice_date": "2026-03-26",
+  "invoice_date_printed": "26-03-2026",
+  "po_ref": "AR/PO/771",
+  "challan_ref": "CH-302",
+  "supplier_gstin": "24EEEEE4444E1Z4",
+  "buyer_gstin": "27FFFFF5555F1Z7",
+  "taxable_total": "252000",
+  "gst_amount": "12600",
+  "grand_total": "264600",
+  "qty": "1200",
+  "rate": "210"
+}

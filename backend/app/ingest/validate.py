@@ -17,8 +17,31 @@ DATE_FORMATS = [
 ]
 
 
-def normalize_date(date_raw: Any) -> tuple[str | None, list[str]]:
-    """Normalizes various Indian and commercial date strings to ISO YYYY-MM-DD."""
+ACTIVITY_VOCABULARY = {
+    "manufacturer": ["manufacturer", "manufacturing", "production", "mfg"],
+    "service": ["service", "services", "servicing"],
+    "trader": ["trader", "trading", "retail", "wholesale"],
+}
+
+
+def normalize_activity(activity_raw: Any) -> tuple[str | None, list[str]]:
+    """Maps activity text (e.g. 'Manufacturing', 'Manufacturer') to fixed vocabulary: manufacturer, service, trader."""
+    if activity_raw is None:
+        return None, []
+    s = str(activity_raw).strip().lower()
+    if not s:
+        return None, []
+    for canonical, variants in ACTIVITY_VOCABULARY.items():
+        if any(v in s for v in variants):
+            return canonical, []
+    return s, ["UNKNOWN_ACTIVITY_VOCABULARY"]
+
+
+def normalize_date(date_raw: Any, as_of_date_str: str = "2026-10-14") -> tuple[str | None, list[str]]:
+    """Normalizes various Indian and commercial date strings to ISO YYYY-MM-DD.
+
+    Flags any date outside 2000 to 2035, or after as-of date by more than a year.
+    """
     if date_raw is None:
         return None, []
 
@@ -32,7 +55,16 @@ def normalize_date(date_raw: Any) -> tuple[str | None, list[str]]:
     for fmt in DATE_FORMATS:
         try:
             dt = datetime.strptime(s_clean, fmt)
-            return dt.strftime("%Y-%m-%d"), []
+            flags: list[str] = []
+            if dt.year < 2000 or dt.year > 2035:
+                flags.append("DATE_OUT_OF_RANGE")
+            try:
+                as_of = datetime.strptime(as_of_date_str, "%Y-%m-%d")
+                if (dt - as_of).days > 365:
+                    flags.append("DATE_AFTER_AS_OF_PLUS_1YR")
+            except Exception:
+                pass
+            return dt.strftime("%Y-%m-%d"), flags
         except ValueError:
             continue
 

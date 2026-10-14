@@ -1,0 +1,66 @@
+{
+  "challan_no": {
+    "value": "KP/CH/045",
+    "source_text": "KP/CH/045"
+  },
+  "challan_date": {
+    "value": "2026-03-18",
+    "source_text": "18-03-2026"
+  },
+  "po_ref": {
+    "value": "NF/PO/118",
+    "source_text": "NF/PO/118"
+  },
+  "supplier_name": {
+    "value": "Supplier",
+    "source_text": "Supplier"
+  },
+  "buyer_name": {
+    "value": "Buyer",
+    "source_text": "Buyer"
+  },
+  "lines": [
+    {
+      "item_description": {
+        "value": "Goods Line 1",
+        "source_text": "Goods Line 1"
+      },
+      "dispatched_qty": {
+        "value": "2000",
+        "source_text": "2000"
+      },
+      "accepted_qty": {
+        "value": "2000",
+        "source_text": "2000"
+      },
+      "rejected_qty": {
+        "value": "0",
+        "source_text": "0"
+      },
+      "unit": {
+        "value": "pcs",
+        "source_text": "pcs"
+      }
+    }
+  ],
+  "stamp_text": {
+    "value": "Stores Kundli",
+    "source_text": "Stores Kundli"
+  },
+  "stamp_date": {
+    "value": "2026-03-18",
+    "source_text": "18-03-2026"
+  },
+  "received_by": {
+    "value": "Stores Kundli",
+    "source_text": "Stores Kundli"
+  },
+  "rejection_reason": {
+    "value": "",
+    "source_text": ""
+  },
+  "remarks": {
+    "value": "Verified & Accepted",
+    "source_text": "Verified & Accepted"
+  }
+}
