@@ -86,6 +86,22 @@
     "paid_total": 0.0,
     "outstanding_principal": 264600.0
   },
-  "expected_rules": null,
-  "notes": "Case C: Ineligible under MSMED Act due to Udyam registration (20-05-2026) postdating contract/PO date (10-03-2026). Blocker prevents readiness."
+  "expected_rules": {
+    "eligibility_status": "not_eligible",
+    "eligibility_reasons": [
+      "Udyam registration date is after the PO date"
+    ],
+    "acceptance_date": null,
+    "acceptance_basis": null,
+    "due_date": null,
+    "interest_start_date": null,
+    "days_overdue": null,
+    "outstanding_principal": null,
+    "total_interest": null,
+    "total_claimable": null,
+    "interest_refused_reason": "Interest not computed because eligibility check returned not_eligible: Udyam registration date is after the PO date",
+    "is_potentially_time_barred": null
+  },
+  "notes": "Case C: Ineligible under MSMED Act due to Udyam registration (20-05-2026) postdating contract/PO date (10-03-2026). Blocker prevents readiness.",
+  "expected_rules_status": "provisional_pending_CA_review"
 }

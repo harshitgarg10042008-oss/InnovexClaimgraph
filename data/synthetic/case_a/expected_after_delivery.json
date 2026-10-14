@@ -119,6 +119,28 @@
     "outstanding_on_delivered_goods": 283800.0,
     "outstanding_on_full_invoice": 283800.0
   },
-  "expected_rules": null,
-  "notes": "All 500 units delivered and evidenced (CH-118: 460 + CH-131: 40). Delivered value equals billed value: 500 x 820 x 1.18 = 483800.00. Paid: 198000 + 2000 TDS = 200000. outstanding_on_delivered_goods = outstanding_on_full_invoice = 483800 - 200000 = 283800.00. Rules use outstanding_on_delivered_goods."
+  "expected_rules": {
+    "eligibility_status": "eligible",
+    "acceptance_date": "2026-04-20",
+    "acceptance_basis": "actual",
+    "credit_days": 45,
+    "credit_days_capped": false,
+    "due_date": "2026-06-04",
+    "interest_start_date": "2026-06-05",
+    "days_overdue": 132,
+    "outstanding_principal": 283800.0,
+    "capitalised_interest": 18342.34,
+    "total_interest": 19710.18,
+    "total_claimable": 303510.18,
+    "period_interests": [
+      6556.78,
+      3992.93,
+      4047.83,
+      4103.49,
+      1009.15
+    ],
+    "is_potentially_time_barred": false
+  },
+  "notes": "All 500 units delivered and evidenced (CH-118: 460 + CH-131: 40). Delivered value equals billed value: 500 x 820 x 1.18 = 483800.00. Paid: 198000 + 2000 TDS = 200000. outstanding_on_delivered_goods = outstanding_on_full_invoice = 483800 - 200000 = 283800.00. Rules use outstanding_on_delivered_goods.",
+  "expected_rules_status": "provisional_pending_CA_review"
 }

@@ -488,7 +488,23 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
             "paid_total": 200000.00,
             "outstanding_principal": 245096.00,
         },
-        "expected_rules": None,
+        "expected_rules_status": "provisional_pending_CA_review",
+        "expected_rules": {
+            "eligibility_status": "eligible",
+            "acceptance_date": "2026-04-20",
+            "acceptance_basis": "actual",
+            "credit_days": 45,
+            "credit_days_capped": False,
+            "due_date": "2026-06-04",
+            "interest_start_date": "2026-06-05",
+            "days_overdue": 132,
+            "outstanding_principal": 245096.0,
+            "capitalised_interest": 16148.38,
+            "total_interest": 17349.26,
+            "total_claimable": 262445.26,
+            "period_interests": [5661.74, 3447.92, 3495.33, 3543.39, 1200.88],
+            "is_potentially_time_barred": False,
+        },
         "notes": "Base scenario: 460 of 500 units delivered; claimable delivered value is 4,45,096.00. Paid 1,98,000 + 2,000 TDS = 2,00,000. Outstanding principal = 2,45,096.00.",
     }
     with open(case_dir / "expected_base.json", "w", encoding="utf-8") as f:
@@ -530,6 +546,23 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
     ]
     deliv_json["expected_ledger"]["delivered_qty"] = 500.0
     deliv_json["expected_ledger"]["outstanding_principal"] = 283800.00
+    deliv_json["expected_rules_status"] = "provisional_pending_CA_review"
+    deliv_json["expected_rules"] = {
+        "eligibility_status": "eligible",
+        "acceptance_date": "2026-04-20",
+        "acceptance_basis": "actual",
+        "credit_days": 45,
+        "credit_days_capped": False,
+        "due_date": "2026-06-04",
+        "interest_start_date": "2026-06-05",
+        "days_overdue": 132,
+        "outstanding_principal": 283800.0,
+        "capitalised_interest": 18342.34,
+        "total_interest": 19710.18,
+        "total_claimable": 303510.18,
+        "period_interests": [6556.78, 3992.93, 4047.83, 4103.49, 1009.15],
+        "is_potentially_time_barred": False,
+    }
     deliv_json["notes"] = "All 500 units delivered and evidenced. Outstanding principal recomputed on full invoice: 4,83,800.00 - 2,00,000.00 = 2,83,800.00."
     with open(case_dir / "expected_after_delivery.json", "w", encoding="utf-8") as f:
         json.dump(deliv_json, f, indent=2)
@@ -767,7 +800,23 @@ def build_case_b():
             "paid_total": 70000.00,
             "outstanding_principal": 16140.00,
         },
-        "expected_rules": None,
+        "expected_rules_status": "provisional_pending_CA_review",
+        "expected_rules": {
+            "eligibility_status": "eligible",
+            "acceptance_date": "2026-03-18",
+            "acceptance_basis": "actual",
+            "credit_days": 30,
+            "credit_days_capped": False,
+            "due_date": "2026-04-17",
+            "interest_start_date": "2026-04-18",
+            "days_overdue": 180,
+            "outstanding_principal": 16140.0,
+            "capitalised_interest": 1479.41,
+            "total_interest": 1700.39,
+            "total_claimable": 17840.39,
+            "period_interests": [542.76, 229.39, 232.54, 235.74, 238.98, 220.98],
+            "is_potentially_time_barred": False,
+        },
         "notes": "Case B: Duplicate invoice flagged. Advance payment Rs 20,000 + part payment Rs 50,000 = Rs 70,000 credited against undisputed invoice total Rs 86,140. Outstanding principal = Rs 16,140.00.",
     }
     with open(case_dir / "expected.json", "w", encoding="utf-8") as f:
@@ -937,7 +986,21 @@ def build_case_c():
             "paid_total": 0.00,
             "outstanding_principal": 264600.00,
         },
-        "expected_rules": None,
+        "expected_rules_status": "provisional_pending_CA_review",
+        "expected_rules": {
+            "eligibility_status": "not_eligible",
+            "eligibility_reasons": ["Udyam registration date is after the PO date"],
+            "acceptance_date": None,
+            "acceptance_basis": None,
+            "due_date": None,
+            "interest_start_date": None,
+            "days_overdue": None,
+            "outstanding_principal": None,
+            "total_interest": None,
+            "total_claimable": None,
+            "interest_refused_reason": "Interest not computed because eligibility check returned not_eligible: Udyam registration date is after the PO date",
+            "is_potentially_time_barred": None,
+        },
         "notes": "Case C: Ineligible under MSMED Act due to Udyam registration (20-05-2026) postdating contract/PO date (10-03-2026). Blocker prevents readiness.",
     }
     with open(case_dir / "expected.json", "w", encoding="utf-8") as f:
@@ -1191,7 +1254,23 @@ def build_case_d():
             "paid_total": 10000.00,
             "outstanding_principal": 6189.60,
         },
-        "expected_rules": None,
+        "expected_rules_status": "provisional_pending_CA_review",
+        "expected_rules": {
+            "eligibility_status": "eligible",
+            "acceptance_date": "2026-05-12",
+            "acceptance_basis": "actual",
+            "credit_days": 30,
+            "credit_days_capped": False,
+            "due_date": "2026-06-11",
+            "interest_start_date": "2026-06-12",
+            "days_overdue": 125,
+            "outstanding_principal": 6189.6,
+            "capitalised_interest": 505.12,
+            "total_interest": 514.43,
+            "total_claimable": 6704.03,
+            "period_interests": [222.61, 101.47, 89.56, 91.48, 9.31],
+            "is_potentially_time_barred": False,
+        },
         "notes": "Case D: Challan is a noisy scan with buyer stamp indicating 980 pcs accepted. Delivered taxable value: 980 * 14 = 13,720.00 + 18% GST (2,469.60) = 16,189.60. Less payment Rs 10,000 = claimable principal Rs 6,189.60 (or Rs 6,520.00 on billed).",
     }
     with open(case_dir / "expected.json", "w", encoding="utf-8") as f:

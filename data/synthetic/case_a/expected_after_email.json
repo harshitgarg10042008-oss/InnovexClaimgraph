@@ -118,6 +118,28 @@
     "outstanding_on_delivered_goods": 245096.0,
     "outstanding_on_full_invoice": 283800.0
   },
-  "expected_rules": null,
-  "notes": "Email (25-04-2026) confirms 40 units on backorder, NOT yet delivered. Claimable principal remains on 460 delivered units: outstanding_on_delivered_goods = 445096 - 200000 = 245096.00. Outstanding on full invoice: 483800 - 200000 = 283800.00. Rules will use outstanding_on_delivered_goods."
+  "expected_rules": {
+    "eligibility_status": "eligible",
+    "acceptance_date": "2026-04-20",
+    "acceptance_basis": "actual",
+    "credit_days": 45,
+    "credit_days_capped": false,
+    "due_date": "2026-06-04",
+    "interest_start_date": "2026-06-05",
+    "days_overdue": 132,
+    "outstanding_principal": 245096.0,
+    "capitalised_interest": 16148.38,
+    "total_interest": 17349.26,
+    "total_claimable": 262445.26,
+    "period_interests": [
+      5661.74,
+      3447.92,
+      3495.33,
+      3543.39,
+      1200.88
+    ],
+    "is_potentially_time_barred": false
+  },
+  "notes": "Email (25-04-2026) confirms 40 units on backorder, NOT yet delivered. Claimable principal remains on 460 delivered units: outstanding_on_delivered_goods = 445096 - 200000 = 245096.00. Outstanding on full invoice: 483800 - 200000 = 283800.00. Rules will use outstanding_on_delivered_goods.",
+  "expected_rules_status": "provisional_pending_CA_review"
 }

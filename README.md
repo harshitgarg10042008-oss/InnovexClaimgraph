@@ -64,6 +64,18 @@ You can run linting and tests inside the running backend container or locally:
   docker compose exec backend pytest
   ```
 
+### Rule Engine (M2)
+
+The deterministic rule engine evaluates MSMED Act claims (eligibility, deemed acceptance, due date, interest by rate slice with monthly rests, and limitation flags) without database or network access:
+
+```bash
+# Run all rule engine tests with verbose output:
+docker compose exec backend pytest tests/rules -v
+
+# Run full test suite:
+docker compose exec backend pytest -q
+```
+
 - **Locally:**
   ```bash
   cd backend

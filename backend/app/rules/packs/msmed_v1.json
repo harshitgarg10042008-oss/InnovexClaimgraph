@@ -1,0 +1,23 @@
+{
+  "pack_name": "msmed_v1",
+  "version": "1.0.0",
+  "effective_from": "2006-06-02",
+  "status": "provisional_pending_legal_review",
+  "max_credit_days": 45,
+  "default_credit_days_without_written_agreement": 15,
+  "objection_window_days": 15,
+  "acceptance_rule": "delivery_day_or_objection_removed",
+  "due_date_rule": "acceptance_date_plus_credit_days",
+  "interest_starts": "day_after_due_date",
+  "interest_multiplier": 3,
+  "compounding": "monthly_rests",
+  "rest_anchor": "interest_start_day_of_month",
+  "within_period_accrual": "daily_weighted",
+  "rounding": "per_period_half_up_2dp",
+  "payment_application": "principal_first",
+  "interest_on_gst_component": true,
+  "tds_counts_as_payment": true,
+  "arbitration_limitation_years": 3,
+  "eligible_enterprise_types": ["micro", "small"],
+  "excluded_activities": ["trader"]
+}

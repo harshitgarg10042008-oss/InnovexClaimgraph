@@ -103,11 +103,33 @@
     "rejected_qty": 20.0,
     "billed_qty": 1000.0,
     "billed_value": 16520.0,
-    "accepted_value": 16189.60,
+    "accepted_value": 16189.6,
     "paid_total": 10000.0,
-    "outstanding_on_accepted_goods": 6189.60,
+    "outstanding_on_accepted_goods": 6189.6,
     "outstanding_on_full_invoice": 6520.0
   },
-  "expected_rules": null,
-  "notes": "Case D: Challan is a noisy camera scan (low OCR confidence expected). Buyer gate stamp accepts 980 pcs; 20 pcs BOLT-M12-50 thread-damaged and rejected in writing. Accepted value: 980 x 14 = 13720.00 + 18% GST (2469.60) = 16189.60. Less payment Rs 10000 => outstanding_on_accepted_goods = 6189.60. Outstanding on full invoice (billed 1000 pcs): 16520.00 - 10000.00 = 6520.00. Rules will use outstanding_on_accepted_goods (6189.60) as claimable principal."
+  "expected_rules": {
+    "eligibility_status": "eligible",
+    "acceptance_date": "2026-05-12",
+    "acceptance_basis": "actual",
+    "credit_days": 30,
+    "credit_days_capped": false,
+    "due_date": "2026-06-11",
+    "interest_start_date": "2026-06-12",
+    "days_overdue": 125,
+    "outstanding_principal": 6189.6,
+    "capitalised_interest": 505.12,
+    "total_interest": 514.43,
+    "total_claimable": 6704.03,
+    "period_interests": [
+      222.61,
+      101.47,
+      89.56,
+      91.48,
+      9.31
+    ],
+    "is_potentially_time_barred": false
+  },
+  "notes": "Case D: Challan is a noisy camera scan (low OCR confidence expected). Buyer gate stamp accepts 980 pcs; 20 pcs BOLT-M12-50 thread-damaged and rejected in writing. Accepted value: 980 x 14 = 13720.00 + 18% GST (2469.60) = 16189.60. Less payment Rs 10000 => outstanding_on_accepted_goods = 6189.60. Outstanding on full invoice (billed 1000 pcs): 16520.00 - 10000.00 = 6520.00. Rules will use outstanding_on_accepted_goods (6189.60) as claimable principal.",
+  "expected_rules_status": "provisional_pending_CA_review"
 }

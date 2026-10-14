@@ -121,6 +121,29 @@
     "paid_total": 70000.0,
     "outstanding_principal": 16140.0
   },
-  "expected_rules": null,
-  "notes": "Case B: Duplicate invoice flagged. Advance payment Rs 20,000 + part payment Rs 50,000 = Rs 70,000 credited against undisputed invoice total Rs 86,140. Outstanding principal = Rs 16,140.00."
+  "expected_rules": {
+    "eligibility_status": "eligible",
+    "acceptance_date": "2026-03-18",
+    "acceptance_basis": "actual",
+    "credit_days": 30,
+    "credit_days_capped": false,
+    "due_date": "2026-04-17",
+    "interest_start_date": "2026-04-18",
+    "days_overdue": 180,
+    "outstanding_principal": 16140.0,
+    "capitalised_interest": 1479.41,
+    "total_interest": 1700.39,
+    "total_claimable": 17840.39,
+    "period_interests": [
+      542.76,
+      229.39,
+      232.54,
+      235.74,
+      238.98,
+      220.98
+    ],
+    "is_potentially_time_barred": false
+  },
+  "notes": "Case B: Duplicate invoice flagged. Advance payment Rs 20,000 + part payment Rs 50,000 = Rs 70,000 credited against undisputed invoice total Rs 86,140. Outstanding principal = Rs 16,140.00.",
+  "expected_rules_status": "provisional_pending_CA_review"
 }

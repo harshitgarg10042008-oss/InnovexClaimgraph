@@ -72,6 +72,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rules/pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pack
+         * @description Return the active rule pack configuration.
+         */
+        get: operations["get_pack_rules_pack_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules/interest-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interest Preview
+         * @description Compute interest for a single principal/payments pair.
+         *
+         *     The rate table can be supplied in the request; if omitted, rows are
+         *     loaded from the database rate table (with seed fallback).
+         *
+         *     Args:
+         *         body: Principal, due date, payments, as_of, optional rate rows.
+         *         db: Database session.
+         *
+         *     Returns:
+         *         :class:`InterestResult` with per-period rows and totals.
+         */
+        post: operations["interest_preview_rules_interest_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -128,6 +178,56 @@ export interface components {
             /** Db */
             db: string;
         };
+        /**
+         * InterestPreviewRequest
+         * @description Input for the interest preview endpoint.
+         */
+        InterestPreviewRequest: {
+            /**
+             * Principal
+             * @description Claimable principal incl. GST
+             */
+            principal: number | string;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** Payments */
+            payments?: components["schemas"]["PaymentIn"][];
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Rate Rows */
+            rate_rows?: components["schemas"]["RateRow"][] | null;
+        };
+        /** InterestResult */
+        InterestResult: {
+            /**
+             * Interest Start Date
+             * Format: date
+             */
+            interest_start_date: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Total Interest */
+            total_interest: string;
+            /** Outstanding Principal */
+            outstanding_principal: string;
+            /** Capitalised Interest */
+            capitalised_interest: string;
+            /** Total Claimable */
+            total_claimable: string;
+            /** Periods */
+            periods: components["schemas"]["PeriodRow"][];
+            /** Working */
+            working: string[];
+        };
         /** PartyRead */
         PartyRead: {
             /**
@@ -156,6 +256,67 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** PaymentIn */
+        PaymentIn: {
+            /**
+             * Pay Date
+             * Format: date
+             */
+            pay_date: string;
+            /** Amount */
+            amount: number | string;
+            /** @default cash */
+            kind: components["schemas"]["PaymentKind"];
+        };
+        /**
+         * PaymentKind
+         * @enum {string}
+         */
+        PaymentKind: "cash" | "tds" | "other";
+        /**
+         * PeriodRow
+         * @description Per-period accrual row returned by the interest engine.
+         */
+        PeriodRow: {
+            /** Period Index */
+            period_index: number;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Days In Period */
+            days_in_period: number;
+            /** Opening Base */
+            opening_base: string;
+            /** Rate Slices */
+            rate_slices: [
+                string,
+                number
+            ][];
+            /** Interest */
+            interest: string;
+            /** Capitalised */
+            capitalised: boolean;
+        };
+        /**
+         * RateRow
+         * @description One row of the bank-rate table.
+         */
+        RateRow: {
+            /**
+             * Effective From
+             * Format: date
+             */
+            effective_from: string;
+            /** Bank Rate Pct */
+            bank_rate_pct: number | string;
         };
         /** RateTableRead */
         RateTableRead: {
@@ -284,6 +445,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RateTableRead"][];
+                };
+            };
+        };
+    };
+    get_pack_rules_pack_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    interest_preview_rules_interest_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterestPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterestResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

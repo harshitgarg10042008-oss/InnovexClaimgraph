@@ -52,7 +52,8 @@ def test_expected_json_schema_and_math(expected_file: Path):
         assert k in data, f"Missing key {k} in {expected_file.name}"
 
     assert data["as_of_date"] == "2026-10-14", "as_of_date must be locked to 2026-10-14"
-    assert data["expected_rules"] is None, "expected_rules must remain null in M1"
+    assert data["expected_rules"] is not None, "expected_rules must be populated in M2"
+    assert data.get("expected_rules_status") == "provisional_pending_CA_review"
 
     # 2. Parties
     assert "supplier" in data["parties"]

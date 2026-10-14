@@ -221,27 +221,30 @@ All rules are pure functions: `(case snapshot, rule pack, rate table) -> result`
 
 ### 7.2 Acceptance and due date (per invoice, per delivery)
 
-1. `acceptance_date` = date of written acceptance in a challan stamp or email, **else** `delivery_date + 15 days` if there is no written objection (deemed acceptance). The basis is stored: `actual` or `deemed`.
-2. `credit_days` = written agreed period if present and at most 45, else 15 if none is agreed in writing. A written period above 45 is capped at 45 and flagged.
-3. `due_date = acceptance_date + credit_days`. The exact day-count convention is in the rule pack **[VERIFY]**.
-4. Partial deliveries: each delivery has its own acceptance and clock. An invoice covering goods not yet delivered is flagged, and the claimable principal is limited to delivered and accepted value.
+1. `acceptance_date`: The day of acceptance is the day of **ACTUAL DELIVERY**. If the buyer raises a written objection within 15 days of delivery, the day of acceptance is the day the supplier removes the objection (`basis = objection_removed`); goods under unresolved objection are not claimable (`basis = blocked_by_objection`). If there is no written objection within 15 days, the goods are deemed accepted on the delivery day (`basis = deemed`). The 15 days is only the objection window; it does **NOT** shift the acceptance date. If explicit written acceptance exists, `basis = actual` with the written acceptance date **[VERIFY]**.
+2. `credit_days` = written agreed period if present and at most 45, else 15 if none is agreed in writing. A written period above 45 is capped at 45 and flagged (`credit_days_capped = true`).
+3. `due_date = acceptance_date + credit_days` (day of acceptance excluded).
+4. `interest_start_date` = day after `due_date`.
+5. Partial deliveries: each delivery has its own acceptance and clock. An invoice covering goods not yet delivered is flagged, and the claimable principal is limited to delivered and accepted value.
 
-### 7.3 Interest
+### 7.3 Interest algorithm
 
-- Annual rate = **3 x Bank Rate** in force, from the dated `rate_table`.
-- Compounded with **monthly rests**.
-- Interest runs on unpaid principal from the day after `due_date`. Payments reduce principal from their date.
-- When the Bank Rate changes mid-claim, compute in **slices** by rate period. Which rate applies across a change is a legal choice kept as a rule-pack option **[VERIFY]**.
-- Partial-month convention is a rule-pack option, default documented in the dossier.
-
-**Seed rate table** (confirm each row against RBI before demo):
-
-| effective_from | bank_rate_pct |
-|---|---|
-| 2026-10-07 | 5.75 |
-| before that | 5.50 |
-
-**Golden test (hand-checkable):** principal ₹1,00,000, 3 full months overdue at a Bank Rate of 5.75%. Annual rate 17.25%, monthly 1.4375%. Amount = 1,00,000 x (1.014375)^3 = ₹1,04,374.79, interest ₹4,374.79. Add more golden cases (partial payment, rate change) and have a CA confirm them.
+- **Rate:** Annual rate = `interest_multiplier x Bank Rate` in force that day from the dated `rate_table` (default multiplier = 3).
+- **Compounding:** Compounded with **monthly rests** anchored to `interest_start_day_of_month` (anniversaries clamp to month end, computed from the start date, not iteratively).
+- **Periods:** Period $k$ starts at `interest_start_date + k months` (clamped) and ends the day before `interest_start_date + (k+1) months`. `days_in_period` is that full monthly length.
+- **Accrual formula:** Within-period accrual is `daily_weighted`. For each day in a period with balance $B$ and annual rate $R$ (where $R = \text{multiplier} \times \text{bank\_rate} / 100$):
+  $$\text{slice\_interest} = B \times \frac{R}{12} \times \frac{\text{slice\_days}}{\text{days\_in\_period}}$$
+- **Payments:** Reduce `outstanding_principal` from their date (including that day). Payments before `interest_start_date` reduce principal before accrual starts. TDS entries count as payment when configured in the rule pack. If payment exceeds principal, remainder reduces capitalised interest.
+- **Capitalisation:** At the end of each full monthly period, period interest is rounded to 2 decimal places with `ROUND_HALF_UP` and added to `capitalised_interest`. A final partial period is rounded but not capitalised.
+- **Seed rate table:**
+  | effective_from | bank_rate_pct |
+  |---|---|
+  | 2026-10-07 | 5.75 |
+  | before that | 5.50 |
+- **Golden tests:**
+  - **G1 (multi-month constant rate):** Principal ₹1,00,000, due date 2026-01-31 (starts 2026-02-01), as_of 2026-04-30, constant bank rate 5.75%. Periods: Feb (28d) ₹1,437.50, Mar (31d) ₹1,458.16, Apr (30d) ₹1,479.13; total interest ₹4,374.79; total claimable ₹1,04,374.79.
+  - **G2 (rate change mid-period):** Principal ₹1,00,000, due date 2026-09-30 (starts 2026-10-01), as_of 2026-10-31, seed RateTable (6 days @ 5.50%, 25 days @ 5.75%). Expected interest ₹1,425.40.
+  - **G3 (payment mid-period):** Principal ₹1,00,000, due date 2026-01-31 (starts 2026-02-01), payment ₹40,000 on 2026-02-15, as_of 2026-02-28, constant 5.75%. Expected interest ₹1,150.00, outstanding principal ₹60,000.00.
 
 ### 7.4 Readiness score (visible formula)
 
