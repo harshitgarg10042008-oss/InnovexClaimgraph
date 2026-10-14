@@ -44,5 +44,8 @@
         "source_text": "We confirm that the remaining 40 units are on backorder and will be dispatched by 10-05-2026 without fail."
       }
     }
-  ]
+  ],
+  "_model_id": "openai/gpt-oss-120b",
+  "_prompt_version": "v1",
+  "_timestamp": "2026-10-14T15:49:22Z"
 }

@@ -62,5 +62,8 @@
   "remarks": {
     "value": null,
     "source_text": null
-  }
+  },
+  "_model_id": "openai/gpt-oss-120b",
+  "_prompt_version": "v1",
+  "_timestamp": "2026-10-14T15:49:22Z"
 }

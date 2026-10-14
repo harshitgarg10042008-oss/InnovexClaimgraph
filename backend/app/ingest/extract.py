@@ -228,18 +228,22 @@ def extract_document_facts(
 
     # Deterministic fallback for bank statement transaction dates split across PDF table lines.
     if kind == "BANK_STATEMENT" and not used_vision:
-        _apply_bank_date_dewrap_fallback(facts)
-
+        _apply_bank_date_dewrap_fallback(full_text, pages_words, facts)
 
     # NO SILENT MISSING FIELDS: Check all required fields for this document type
     # Note: Optional fields (rejected_qty, remarks, etc.) must NOT be emitted as null facts.
     req_fields = REQUIRED_FIELDS_BY_KIND.get(kind, [])
-    opt_fields_prefixes = [f.split(".")[-1] for f in OPTIONAL_FIELDS_BY_KIND.get(kind, [])]
     fallback_extractor = (
         f"vision:{settings.LLM_VISION_MODEL}"
         if used_vision
         else f"{PROMPT_VERSION}:{settings.LLM_EXTRACT_MODEL}"
     )
+
+    def _is_required(fp: str) -> bool:
+        for rf in req_fields:
+            if fp == rf or (rf.startswith("lines[") and fp.endswith(rf.split(".")[-1])):
+                return True
+        return False
 
     for rf in req_fields:
         # Match exact path or subfield path (e.g. lines[0].dispatched_qty)
@@ -265,7 +269,7 @@ def extract_document_facts(
             )
         else:
             for ef in existing:
-                if ef.raw_value is None or str(ef.raw_value).strip() in ("", "None", "null", "-"):
+                if ef.raw_value is None or str(ef.raw_value).strip() in ("", "None", "null", "-", "—", "–", "N/A", "nil"):
                     ef.raw_value = None
                     ef.normalised_value = None
                     ef.status = "needs_review"
@@ -275,11 +279,11 @@ def extract_document_facts(
 
     # Remove any extracted facts for optional fields that have null/empty values
     # (absent optional fields are normal; do not pollute the review queue)
-    def _is_optional(fp: str) -> bool:
-        tail = fp.split(".")[-1]
-        return tail in opt_fields_prefixes
-
-    facts = [f for f in facts if f.raw_value is not None or not _is_optional(f.field_path)]
+    facts = [
+        f for f in facts
+        if (f.raw_value is not None and str(f.raw_value).strip() not in ("", "None", "null", "-", "—", "–", "N/A", "nil"))
+        or _is_required(f.field_path)
+    ]
 
     return facts
 
@@ -297,8 +301,25 @@ def _traverse_and_build_facts(
         raw_val = data.value
         src_text = data.source_text
 
+        # Standalone dash or empty indicator means absent / null cell
+        if raw_val is not None and str(raw_val).strip() in ("-", "—", "–", "N/A", "n/a", "nil", "NIL", "None", "null", ""):
+            raw_val = None
+            src_text = None
+
         # 1. Locate source text on pages
-        loc = locate_source_text(src_text, pages_words)
+        # Avoid bbox sharing for compound ranges like 'Date: 01-06-2026 to 10-07-2026'
+        loc_target = src_text
+        if raw_val and src_text and "period_" in path.lower() and " to " in src_text.lower():
+            loc_target = str(raw_val).strip()
+        elif raw_val and src_text and "credit_days" in path.lower():
+            loc_target = f"{raw_val} days"
+
+        if raw_val is None or not loc_target:
+            loc = locate_source_text(None, pages_words)
+        else:
+            loc = locate_source_text(loc_target, pages_words)
+            if not loc.found and loc_target != src_text:
+                loc = locate_source_text(src_text, pages_words)
 
         # 2. Normalisation and validation
         normalised, val_flags = _normalise_and_validate_field(path, raw_val)
@@ -314,19 +335,23 @@ def _traverse_and_build_facts(
             final_conf = Decimal("0.85")
             extractor_ver = f"vision:{settings.LLM_VISION_MODEL}"
         else:
-            if not loc.found:
+            if not loc.found and raw_val is not None:
                 val_flags.append("SOURCE_NOT_FOUND")
 
-            base_conf = loc.match_score * ocr_avg_conf
+            base_conf = loc.match_score * ocr_avg_conf if raw_val is not None else 0.0
             if val_flags:
                 base_conf *= 0.7  # Penalty for validation flags
             final_conf = Decimal(str(round(max(0.0, min(1.0, base_conf)), 4)))
 
-            if final_conf < Decimal("0.85") or val_flags or not loc.found:
+            if raw_val is None:
+                status = "auto"
+                bbox = None
+            elif final_conf < Decimal("0.85") or val_flags or not loc.found:
                 status = "needs_review"
+                bbox = loc.bbox
             else:
                 status = "auto"
-            bbox = loc.bbox
+                bbox = loc.bbox
             extractor_ver = f"{PROMPT_VERSION}:{settings.LLM_EXTRACT_MODEL}"
 
         facts.append(
@@ -375,6 +400,10 @@ def _normalise_and_validate_field(
 ) -> tuple[Any, list[str]]:
     flags: list[str] = []
     if raw_val is None:
+        return None, []
+
+    s_val = str(raw_val).strip()
+    if s_val in ("-", "—", "–", "N/A", "n/a", "nil", "NIL", "None", "null", ""):
         return None, []
 
     p_lower = path.lower()
@@ -541,50 +570,93 @@ def _apply_challan_stamp_fallback(
             stamp_text_fact.validation_flags = []
             stamp_text_fact.extractor_version = f"{PROMPT_VERSION}:regex_stamp_fallback"
 
-    # stamp_date: fill if null (optional field)
+    # Ensure stamp_date is located in the stamp area (closest to sign vertically), never the header challan_date
     stamp_date_fact = next((f for f in facts if f.field_path == "stamp_date"), None)
-    if stamp_date_fact is None or stamp_date_fact.raw_value is None:
-        if norm_date:
-            loc = locate_source_text(raw_date, pages_words)
-            if stamp_date_fact is None:
-                facts.append(ExtractedFactItem(
-                    field_path="stamp_date",
-                    raw_value=raw_date,
-                    normalised_value=norm_date,
-                    source_text=m.group(0).strip(),
-                    page_no=loc.page_no,
-                    bbox=loc.bbox,
-                    confidence=Decimal("0.95"),
-                    status="auto",
-                    extractor_version=f"{PROMPT_VERSION}:regex_stamp_fallback",
-                ))
-            else:
-                stamp_date_fact.raw_value = raw_date
-                stamp_date_fact.normalised_value = norm_date
-                stamp_date_fact.source_text = m.group(0).strip()
-                stamp_date_fact.confidence = Decimal("0.95")
-                stamp_date_fact.status = "auto"
-                stamp_date_fact.validation_flags = []
-                stamp_date_fact.extractor_version = f"{PROMPT_VERSION}:regex_stamp_fallback"
+    if norm_date and (stamp_date_fact is None or stamp_date_fact.raw_value is None or (stamp_date_fact.bbox and stamp_date_fact.bbox[1] < 0.25)):
+        sign_loc = locate_source_text(raw_sign, pages_words)
+        all_date_boxes = [w for w_list in pages_words.values() for w in w_list if raw_date in w.text]
+        if all_date_boxes and sign_loc.found and sign_loc.bbox:
+            stamp_date_box = min(all_date_boxes, key=lambda w: abs(w.bbox[1] - sign_loc.bbox[1]))
+            date_bbox = stamp_date_box.bbox
+            date_page = sign_loc.page_no
+        else:
+            loc = locate_source_text(f"DATE: {raw_date}", pages_words)
+            date_bbox = loc.bbox if loc.found else None
+            date_page = loc.page_no
+
+        if stamp_date_fact is None:
+            facts.append(ExtractedFactItem(
+                field_path="stamp_date",
+                raw_value=raw_date,
+                normalised_value=norm_date,
+                source_text=m.group(0).strip(),
+                page_no=date_page,
+                bbox=date_bbox,
+                confidence=Decimal("0.95"),
+                status="auto",
+                extractor_version=f"{PROMPT_VERSION}:regex_stamp_fallback",
+            ))
+        else:
+            stamp_date_fact.raw_value = raw_date
+            stamp_date_fact.normalised_value = norm_date
+            stamp_date_fact.source_text = m.group(0).strip()
+            stamp_date_fact.page_no = date_page
+            stamp_date_fact.bbox = date_bbox
+            stamp_date_fact.confidence = Decimal("0.95")
+            stamp_date_fact.status = "auto"
+            stamp_date_fact.validation_flags = []
+            stamp_date_fact.extractor_version = f"{PROMPT_VERSION}:regex_stamp_fallback"
 
 
-def _apply_bank_date_dewrap_fallback(facts: list[ExtractedFactItem]) -> None:
+def _apply_bank_date_dewrap_fallback(
+    full_text: str,
+    pages_words: dict[int, list[WordBox]],
+    facts: list[ExtractedFactItem],
+) -> None:
     """Re-parses transaction dates that got PDF-wrapped (e.g. '05-06-202' with year on next line).
 
-    The normalize_date function now handles this, but facts may already be built with the
-    truncated raw value. Re-normalise any transaction date that failed parsing.
+    The source of truth is the full document text, checking for wrapped trailing year digits.
     """
     for fact in facts:
         if "transaction" in fact.field_path and "date" in fact.field_path:
-            if fact.raw_value and "INVALID_DATE_FORMAT" in fact.validation_flags:
-                norm, flags = normalize_date(fact.raw_value)
-                if norm and "INVALID_DATE_FORMAT" not in flags:
-                    fact.normalised_value = norm
-                    fact.validation_flags = [f for f in fact.validation_flags if f != "INVALID_DATE_FORMAT"]
-                    fact.validation_flags.extend(flags)
-                    if not fact.validation_flags:
-                        fact.status = "auto"
-                        fact.confidence = Decimal("0.90")
+            raw_s = str(fact.raw_value or "").strip()
+            # If 3-digit year like '05-06-202'
+            if _re.match(r"^\d{2}[-/]\d{2}[-/]\d{3}$", raw_s):
+                m = _re.search(_re.escape(raw_s) + r"\s*\n?\s*(\d)\b", full_text)
+                if m:
+                    repaired = raw_s + m.group(1)
+                    norm, flags = normalize_date(repaired)
+                    if norm and "INVALID_DATE_FORMAT" not in flags:
+                        fact.raw_value = repaired
+                        fact.normalised_value = norm
+                        fact.source_text = repaired
+                        fact.validation_flags = [f for f in fact.validation_flags if f != "INVALID_DATE_FORMAT"]
+                        fact.validation_flags.extend(flags)
+                        # Locate exact row in wordboxes
+                        for p_no, w_list in pages_words.items():
+                            w_idx = next((i for i, w in enumerate(w_list) if w.text.startswith(raw_s)), None)
+                            if w_idx is not None:
+                                w_obj = w_list[w_idx]
+                                next_w = w_list[w_idx + 1] if w_idx + 1 < len(w_list) else w_obj
+                                fact.page_no = p_no
+                                fact.bbox = [
+                                    min(w_obj.bbox[0], next_w.bbox[0]),
+                                    min(w_obj.bbox[1], next_w.bbox[1]),
+                                    max(w_obj.bbox[2], next_w.bbox[2]),
+                                    max(w_obj.bbox[3], next_w.bbox[3]),
+                                ]
+                                break
+                        if not fact.validation_flags:
+                            fact.status = "auto"
+                            fact.confidence = Decimal("0.90")
+            elif fact.raw_value:
+                # If transaction date was located in statement header (y < 0.18), re-locate to table row (y >= 0.18)
+                if fact.bbox and fact.bbox[1] < 0.18:
+                    for p_no, w_list in pages_words.items():
+                        match_w = next((w for w in w_list if fact.raw_value in w.text and w.bbox[1] >= 0.18), None)
+                        if match_w:
+                            fact.page_no = p_no
+                            fact.bbox = match_w.bbox
 
 
 def save_facts_to_db(

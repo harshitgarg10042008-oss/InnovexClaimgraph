@@ -105,16 +105,23 @@ def _is_critical(field_name: str) -> bool:
 
 
 def _values_match(exp_v: Any, fact_v: str) -> bool:
-    """Flexible comparison: try numeric equality first, then substring."""
+    """Flexible comparison: try numeric equality first, then substring.
+
+    Empty strings or null tokens never match any value.
+    """
+    if exp_v is None or fact_v is None:
+        return False
     exp_s = str(exp_v).strip().lower().replace(",", "")
     fact_s = str(fact_v).strip().lower().replace(",", "")
+    if not exp_s or not fact_s or fact_s in ("-", "—", "–", "none", "null", "n/a", "nil"):
+        return False
     # Numeric equality
     try:
         return Decimal(exp_s) == Decimal(fact_s)
     except InvalidOperation:
         pass
-    # Substring
-    return exp_s in fact_s or fact_s in exp_s or exp_s == fact_s
+    # Substring matching (both must be non-empty)
+    return exp_s in fact_s or fact_s in exp_s
 
 
 def _match_field(

@@ -127,9 +127,13 @@ class LLMClient:
 
         return None
 
-    def write_cache(self, cache_key: str, data: dict[str, Any]) -> None:
+    def write_cache(self, cache_key: str, data: dict[str, Any], model: str | None = None) -> None:
         storage_path = self._get_cache_dir() / cache_key
         storage_path.parent.mkdir(parents=True, exist_ok=True)
+        if "_model_id" not in data:
+            data["_model_id"] = model or settings.LLM_EXTRACT_MODEL
+            data["_prompt_version"] = PROMPT_VERSION
+            data["_timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         with open(storage_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
