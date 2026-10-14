@@ -27,11 +27,28 @@ For the architectural blueprint, roadmap, and specifications, see the [Master Pl
    docker compose up --build
    ```
 
-3. **Access the services:**
+3. **Seed synthetic cases and rate table data:**
+   ```bash
+   docker compose exec backend python -m app.seed
+   ```
+
+4. **Access the services:**
    - **Frontend (System Status):** [http://localhost:3000](http://localhost:3000)
    - **Backend API Root / Health:** [http://localhost:8000/health](http://localhost:8000/health)
    - **Interactive API Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
    - **PostgreSQL Database:** `localhost:5432` (db: `claimgraph`, user: `claimgraph`)
+
+---
+
+## Synthetic Cases
+
+ClaimGraph includes four comprehensive, realistic synthetic test cases covering core commercial dispute patterns:
+- **Case A (Main Demo):** Micro supplier with 460 vs 500 unit delivery gap, 1% TDS deduction, and progressive backorder addons.
+- **Case B (Duplicates & Advance):** Duplicate billing detection and advance payments omitted from invoice face.
+- **Case C (Ineligibility Gate):** Supplier whose Udyam registration postdates the contract date.
+- **Case D (Messy Scan):** Camera photo of a stamped delivery challan with optical distortion and shortfall.
+
+Detailed narratives, document schemas, and expected outputs are documented in [data/synthetic/README.md](data/synthetic/README.md).
 
 ---
 

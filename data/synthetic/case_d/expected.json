@@ -1,0 +1,98 @@
+{
+  "case_id": "case_d",
+  "stage": "base",
+  "as_of_date": "2026-10-14",
+  "parties": {
+    "supplier": {
+      "name": "Raman Fasteners",
+      "role": "supplier",
+      "gstin": "03GGGGG6666G1Z9",
+      "pan": "GGGGG6666G",
+      "udyam_no": "UDYAM-PB-04-0043210",
+      "udyam_reg_date": "2022-11-04",
+      "enterprise_type": "micro",
+      "activity": "manufacturer"
+    },
+    "buyer": {
+      "name": "Orbit Machines Pvt Ltd",
+      "role": "buyer",
+      "gstin": "08HHHHH7777H1Z3",
+      "pan": "HHHHH7777H"
+    }
+  },
+  "purchase_orders": [
+    {
+      "po_no": "OM/PO/5540",
+      "po_date": "2026-05-06",
+      "credit_days_written": 30,
+      "lines": [
+        {
+          "item_key": "BOLT-M12-50",
+          "description": "Hex bolt M12 x 50mm",
+          "qty": 1000.0,
+          "unit": "pcs",
+          "rate": 14.0
+        }
+      ]
+    }
+  ],
+  "deliveries": [
+    {
+      "challan_no": "CH-881",
+      "delivery_date": "2026-05-12",
+      "received_by": "K. S. Verma Gate 2",
+      "lines": [
+        {
+          "item_key": "BOLT-M12-50",
+          "qty": 980.0
+        }
+      ]
+    }
+  ],
+  "invoices": [
+    {
+      "invoice_no": "INV-1042",
+      "invoice_date": "2026-05-22",
+      "gstin_s": "03GGGGG6666G1Z9",
+      "gstin_b": "08HHHHH7777H1Z3",
+      "taxable": 14000.0,
+      "gst": 2520.0,
+      "total": 16520.0,
+      "lines": [
+        {
+          "item_key": "BOLT-M12-50",
+          "qty": 1000.0,
+          "rate": 14.0,
+          "amount": 14000.0
+        }
+      ]
+    }
+  ],
+  "payments": [
+    {
+      "utr": "UTRORB261960012",
+      "pay_date": "2026-07-15",
+      "amount": 10000.0,
+      "bank_ref_text": "NEFT PART PAY INV-1042 - ORBIT MACHINES"
+    }
+  ],
+  "adjustments": [],
+  "communications": [],
+  "expected_findings": [
+    {
+      "code": "QTY_MISMATCH",
+      "severity": "warn",
+      "message": "Billed 1000 pcs but challan CH-881 evidences delivery of 980 pcs (shortfall of 20 pcs)"
+    }
+  ],
+  "expected_ledger": {
+    "ordered_qty": 1000.0,
+    "delivered_qty": 980.0,
+    "billed_qty": 1000.0,
+    "billed_value": 16520.0,
+    "paid_total": 10000.0,
+    "outstanding_principal": 6189.6
+  },
+  "expected_rules": null,
+  "notes": "Case D: Challan is a noisy scan with buyer stamp indicating 980 pcs accepted. Delivered taxable value: 980 * 14 = 13,720.00 + 18% GST (2,469.60) = 16,189.60. Less payment Rs 10,000 = claimable principal Rs 6,189.60 (or Rs 6,520.00 on billed)."
+}

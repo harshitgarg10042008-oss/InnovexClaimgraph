@@ -29,11 +29,14 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://claimgraph:claimgraph@db:5432/claimgraph}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}
+      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
       LLM_EXTRACT_MODEL: ${LLM_EXTRACT_MODEL:-}
       LLM_CLASSIFY_MODEL: ${LLM_CLASSIFY_MODEL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
     volumes:
       - ./backend:/app
+      - ./data:/data
+      - storage_data:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -59,3 +62,4 @@ services:
 
 volumes:
   pgdata:
+  storage_data:

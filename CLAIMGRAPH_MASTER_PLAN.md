@@ -467,8 +467,8 @@ Each milestone ends with: tests passing, app runs via `docker compose up`, a sho
 
 ## 13. Working agreements (avoid clashes)
 
-- **Branches:** `main` is always demo-ready. Work on `feat/<milestone>-<short-name>`, merge by pull request, at least one review.
-- **Commits:** `type(scope): message`, for example `feat(rules): add interest slices`.
+- **Branches:** We work directly on `main` (no feature branches). `main` must always start with `docker compose up`.
+- **Commits:** Commit small and often with `type(scope): message`, for example `feat(rules): add interest slices`. Tag finished milestones (`m0-done`, `m1-done`, ...).
 - **Ownership:** each folder in section 10 has one owner at a time. Cross-folder changes go through the API contract.
 - **Contract first:** schema or endpoint changes are merged before the code that uses them.
 - **Rules live in data:** no hard-coded rates, day counts or thresholds in code.

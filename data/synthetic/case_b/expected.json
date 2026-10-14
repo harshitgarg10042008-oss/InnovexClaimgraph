@@ -1,0 +1,126 @@
+{
+  "case_id": "case_b",
+  "stage": "base",
+  "as_of_date": "2026-10-14",
+  "parties": {
+    "supplier": {
+      "name": "Kaveri Packaging Works",
+      "role": "supplier",
+      "gstin": "29CCCCC2222C1Z8",
+      "pan": "CCCCC2222C",
+      "udyam_no": "UDYAM-KA-02-0054321",
+      "udyam_reg_date": "2023-08-01",
+      "enterprise_type": "small",
+      "activity": "manufacturer"
+    },
+    "buyer": {
+      "name": "Northline Foods Ltd",
+      "role": "buyer",
+      "gstin": "06DDDDD3333D1Z1",
+      "pan": "DDDDD3333D"
+    }
+  },
+  "purchase_orders": [
+    {
+      "po_no": "NF/PO/118",
+      "po_date": "2026-03-05",
+      "credit_days_written": 30,
+      "lines": [
+        {
+          "item_key": "CTN-5PLY",
+          "description": "Corrugated master cartons 5-ply",
+          "qty": 2000.0,
+          "unit": "pcs",
+          "rate": 36.5
+        }
+      ]
+    }
+  ],
+  "deliveries": [
+    {
+      "challan_no": "KP/CH/045",
+      "delivery_date": "2026-03-18",
+      "received_by": "Stores Kundli",
+      "lines": [
+        {
+          "item_key": "CTN-5PLY",
+          "qty": 2000.0
+        }
+      ]
+    }
+  ],
+  "invoices": [
+    {
+      "invoice_no": "KP/INV/0412",
+      "invoice_date": "2026-03-19",
+      "gstin_s": "29CCCCC2222C1Z8",
+      "gstin_b": "06DDDDD3333D1Z1",
+      "taxable": 73000.0,
+      "gst": 13140.0,
+      "total": 86140.0,
+      "lines": [
+        {
+          "item_key": "CTN-5PLY",
+          "qty": 2000.0,
+          "rate": 36.5,
+          "amount": 73000.0
+        }
+      ]
+    },
+    {
+      "invoice_no": "KP/INV/0412-A",
+      "invoice_date": "2026-03-28",
+      "gstin_s": "29CCCCC2222C1Z8",
+      "gstin_b": "06DDDDD3333D1Z1",
+      "taxable": 73000.0,
+      "gst": 13140.0,
+      "total": 86140.0,
+      "lines": [
+        {
+          "item_key": "CTN-5PLY",
+          "qty": 2000.0,
+          "rate": 36.5,
+          "amount": 73000.0
+        }
+      ]
+    }
+  ],
+  "payments": [
+    {
+      "utr": "UTRNF2606010029",
+      "pay_date": "2026-03-01",
+      "amount": 20000.0,
+      "bank_ref_text": "NEFT ADVANCE FOR PO NF/PO/118 - NORTHLINE FOODS"
+    },
+    {
+      "utr": "UTRNF2612204891",
+      "pay_date": "2026-05-02",
+      "amount": 50000.0,
+      "bank_ref_text": "RTGS PART PAYMENT INV KP/INV/0412 - NORTHLINE FOODS"
+    }
+  ],
+  "adjustments": [],
+  "communications": [],
+  "expected_findings": [
+    {
+      "code": "DUPLICATE_INVOICE",
+      "severity": "blocker",
+      "message": "Duplicate invoice KP/INV/0412-A re-billed for same delivery KP/CH/045"
+    },
+    {
+      "code": "UNCREDITED_PAYMENT",
+      "severity": "warn",
+      "message": "Advance payment of Rs 20,000.00 received on 01-03-2026 not credited against invoice face"
+    }
+  ],
+  "expected_ledger": {
+    "ordered_qty": 2000.0,
+    "delivered_qty": 2000.0,
+    "billed_qty": 2000.0,
+    "billed_value": 86140.0,
+    "paid_total": 70000.0,
+    "outstanding_principal": 16140.0
+  },
+  "expected_rules": null,
+  "notes": "Case B: Duplicate invoice flagged. Advance payment Rs 20,000 + part payment Rs 50,000 = Rs 70,000 credited against undisputed invoice total Rs 86,140. Outstanding principal = Rs 16,140.00."
+}

@@ -1,0 +1,91 @@
+{
+  "case_id": "case_c",
+  "stage": "base",
+  "as_of_date": "2026-10-14",
+  "parties": {
+    "supplier": {
+      "name": "Tara Textiles",
+      "role": "supplier",
+      "gstin": "24EEEEE4444E1Z4",
+      "pan": "EEEEE4444E",
+      "udyam_no": "UDYAM-GJ-03-0098765",
+      "udyam_reg_date": "2026-05-20",
+      "enterprise_type": "micro",
+      "activity": "manufacturer"
+    },
+    "buyer": {
+      "name": "Ashoka Retail Pvt Ltd",
+      "role": "buyer",
+      "gstin": "27FFFFF5555F1Z7",
+      "pan": "FFFFF5555F"
+    }
+  },
+  "purchase_orders": [
+    {
+      "po_no": "AR/PO/771",
+      "po_date": "2026-03-10",
+      "credit_days_written": 30,
+      "lines": [
+        {
+          "item_key": "FAB-COTTON-60",
+          "description": "Premium cotton shirting fabric (60s count)",
+          "qty": 1200.0,
+          "unit": "metres",
+          "rate": 210.0
+        }
+      ]
+    }
+  ],
+  "deliveries": [
+    {
+      "challan_no": "CH-302",
+      "delivery_date": "2026-03-25",
+      "received_by": "Stores Officer Bhiwandi",
+      "lines": [
+        {
+          "item_key": "FAB-COTTON-60",
+          "qty": 1200.0
+        }
+      ]
+    }
+  ],
+  "invoices": [
+    {
+      "invoice_no": "INV-901",
+      "invoice_date": "2026-03-26",
+      "gstin_s": "24EEEEE4444E1Z4",
+      "gstin_b": "27FFFFF5555F1Z7",
+      "taxable": 252000.0,
+      "gst": 12600.0,
+      "total": 264600.0,
+      "lines": [
+        {
+          "item_key": "FAB-COTTON-60",
+          "qty": 1200.0,
+          "rate": 210.0,
+          "amount": 252000.0
+        }
+      ]
+    }
+  ],
+  "payments": [],
+  "adjustments": [],
+  "communications": [],
+  "expected_findings": [
+    {
+      "code": "INELIGIBLE_SUPPLIER",
+      "severity": "blocker",
+      "message": "Udyam registration date is after the PO date"
+    }
+  ],
+  "expected_ledger": {
+    "ordered_qty": 1200.0,
+    "delivered_qty": 1200.0,
+    "billed_qty": 1200.0,
+    "billed_value": 264600.0,
+    "paid_total": 0.0,
+    "outstanding_principal": 264600.0
+  },
+  "expected_rules": null,
+  "notes": "Case C: Ineligible under MSMED Act due to Udyam registration (20-05-2026) postdating contract/PO date (10-03-2026). Blocker prevents readiness."
+}

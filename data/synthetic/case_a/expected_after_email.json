@@ -1,0 +1,121 @@
+{
+  "case_id": "case_a",
+  "stage": "after_email",
+  "as_of_date": "2026-10-14",
+  "parties": {
+    "supplier": {
+      "name": "Sharma Auto Components",
+      "role": "supplier",
+      "gstin": "07AAAAA0000A1Z5",
+      "pan": "AAAAA0000A",
+      "udyam_no": "UDYAM-DL-01-0012345",
+      "udyam_reg_date": "2024-03-12",
+      "enterprise_type": "micro",
+      "activity": "manufacturer"
+    },
+    "buyer": {
+      "name": "Meridian Motors Pvt Ltd",
+      "role": "buyer",
+      "gstin": "27BBBBB1111B1Z2",
+      "pan": "BBBBB1111B"
+    }
+  },
+  "purchase_orders": [
+    {
+      "po_no": "MM/PO/2291",
+      "po_date": "2026-04-02",
+      "credit_days_written": 45,
+      "lines": [
+        {
+          "item_key": "BB-210",
+          "description": "Brake bracket BB-210",
+          "qty": 500.0,
+          "unit": "pcs",
+          "rate": 820.0
+        }
+      ]
+    }
+  ],
+  "deliveries": [
+    {
+      "challan_no": "CH-118",
+      "delivery_date": "2026-04-20",
+      "received_by": "R. Kulkarni",
+      "lines": [
+        {
+          "item_key": "BB-210",
+          "qty": 460.0
+        }
+      ]
+    }
+  ],
+  "invoices": [
+    {
+      "invoice_no": "INV-7731",
+      "invoice_date": "2026-04-22",
+      "gstin_s": "07AAAAA0000A1Z5",
+      "gstin_b": "27BBBBB1111B1Z2",
+      "taxable": 410000.0,
+      "gst": 73800.0,
+      "total": 483800.0,
+      "lines": [
+        {
+          "item_key": "BB-210",
+          "qty": 500.0,
+          "rate": 820.0,
+          "amount": 410000.0
+        }
+      ]
+    }
+  ],
+  "payments": [
+    {
+      "utr": "UTRB26181049281",
+      "pay_date": "2026-06-30",
+      "amount": 198000.0,
+      "bank_ref_text": "CMS/PART PAY INV-7731/MERIDIAN MOTORS PVT LTD"
+    }
+  ],
+  "adjustments": [
+    {
+      "kind": "tds",
+      "amount": 2000.0,
+      "ref": "TDS u/s 194Q per remittance advice REM-2026-0881"
+    }
+  ],
+  "communications": [
+    {
+      "msg_date": "2026-04-25",
+      "sender": "accounts@sharmaauto.in",
+      "kind": "backorder",
+      "quote": "We confirm that the remaining 40 units are on backorder and will be dispatched by 10-05-2026 without fail."
+    }
+  ],
+  "expected_findings": [
+    {
+      "code": "QTY_MISMATCH",
+      "severity": "warn",
+      "message": "Delivered 460 of 500 billed units (shortfall of 40 units)"
+    },
+    {
+      "code": "TDS_DEDUCTION",
+      "severity": "info",
+      "message": "TDS of Rs 2,000.00 deducted by buyer credited against claimable principal"
+    },
+    {
+      "code": "BACKORDER_PENDING",
+      "severity": "warn",
+      "message": "40 units promised on backorder by 10-05-2026; delivery proof pending"
+    }
+  ],
+  "expected_ledger": {
+    "ordered_qty": 500.0,
+    "delivered_qty": 460.0,
+    "billed_qty": 500.0,
+    "billed_value": 483800.0,
+    "paid_total": 200000.0,
+    "outstanding_principal": 245096.0
+  },
+  "expected_rules": null,
+  "notes": "Email confirms 40 units on backorder but NOT yet delivered; claimable principal remains on 460 delivered units: 2,45,096.00."
+}
