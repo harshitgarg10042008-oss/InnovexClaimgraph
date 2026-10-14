@@ -1,0 +1,22 @@
+{
+  "udyam_no": {
+    "value": "UDYAM-PB-04-0043210",
+    "source_text": "UDYAM REGISTRATION NUMBER: UDYAM-PB-04-0043210"
+  },
+  "enterprise_name": {
+    "value": "Raman Fasteners",
+    "source_text": "Name of Enterprise\nRaman Fasteners"
+  },
+  "enterprise_type": {
+    "value": "Micro",
+    "source_text": "Type of Enterprise\nMicro"
+  },
+  "activity": {
+    "value": "Manufacturer",
+    "source_text": "Major Activity\nManufacturer"
+  },
+  "registration_date": {
+    "value": "04-11-2022",
+    "source_text": "Date of Registration\n04-11-2022"
+  }
+}

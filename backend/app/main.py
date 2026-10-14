@@ -2,7 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.cases import router as cases_router
+from app.api.documents import router as documents_router
+from app.api.facts import router as facts_router
 from app.api.health import router as health_router
+from app.api.jobs import router as jobs_router
 from app.api.rate_table import router as rate_table_router
 from app.api.rules import router as rules_router
 from app.core.config import settings
@@ -22,5 +25,9 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(cases_router)
+app.include_router(documents_router)
+app.include_router(facts_router)
+app.include_router(jobs_router)
 app.include_router(rate_table_router)
 app.include_router(rules_router)
+

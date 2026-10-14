@@ -1,0 +1,74 @@
+{
+  "po_no": {
+    "value": "MM/PO/2291",
+    "source_text": "No: MM/PO/2291"
+  },
+  "po_date": {
+    "value": "02-04-2026",
+    "source_text": "Date: 02-04-2026"
+  },
+  "buyer_name": {
+    "value": "Meridian Motors Pvt Ltd",
+    "source_text": "Buyer / Delivery To:\nMeridian Motors Pvt Ltd"
+  },
+  "supplier_name": {
+    "value": "Sharma Auto Components",
+    "source_text": "Vendor / Supplier:\nSharma Auto Components"
+  },
+  "buyer_gstin": {
+    "value": "27BBBBB1111B1Z2",
+    "source_text": "GSTIN: 27BBBBB1111B1Z2"
+  },
+  "supplier_gstin": {
+    "value": "07AAAAA0000A1Z5",
+    "source_text": "GSTIN: 07AAAAA0000A1Z5"
+  },
+  "payment_terms_text": {
+    "value": "45 days from receipt of goods.",
+    "source_text": "Payment Terms: 45 days from receipt of goods."
+  },
+  "credit_days": {
+    "value": 45,
+    "source_text": "Payment Terms: 45 days from receipt of goods."
+  },
+  "lines": [
+    {
+      "item_code": {
+        "value": null,
+        "source_text": null
+      },
+      "description": {
+        "value": "Brake bracket BB-210 (High tensile steel)",
+        "source_text": "1\nBrake bracket BB-210 (High tensile steel)"
+      },
+      "hsn": {
+        "value": "87082900",
+        "source_text": "87082900"
+      },
+      "qty": {
+        "value": "500",
+        "source_text": "500"
+      },
+      "unit": {
+        "value": "pcs",
+        "source_text": "pcs"
+      },
+      "rate": {
+        "value": "820.00",
+        "source_text": "820.00"
+      }
+    }
+  ],
+  "gst_rate_pct": {
+    "value": "18.0",
+    "source_text": "IGST (18.0%)"
+  },
+  "taxable_total": {
+    "value": "4,10,000.00",
+    "source_text": "Taxable Value\n4,10,000.00"
+  },
+  "grand_total": {
+    "value": "4,83,800.00",
+    "source_text": "Total PO Value\n4,83,800.00"
+  }
+}

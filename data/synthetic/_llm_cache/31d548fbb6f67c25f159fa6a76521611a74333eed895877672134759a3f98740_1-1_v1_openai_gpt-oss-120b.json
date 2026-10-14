@@ -1,0 +1,82 @@
+{
+  "account_holder": {
+    "value": "Kaveri Packaging Works",
+    "source_text": "Account Holder: Kaveri Packaging Works"
+  },
+  "period_from": {
+    "value": "01-03-2026",
+    "source_text": "Date: 01-03-2026 to 15-05-2026"
+  },
+  "period_to": {
+    "value": "15-05-2026",
+    "source_text": "Date: 01-03-2026 to 15-05-2026"
+  },
+  "transactions": [
+    {
+      "date": {
+        "value": "01-03-202",
+        "source_text": "01-03-202"
+      },
+      "narration": {
+        "value": "NEFT ADVANCE FOR PO NF/PO/118 -\nNORTHLINE FOODS",
+        "source_text": "NEFT ADVANCE FOR PO NF/PO/118 -\nNORTHLINE FOODS"
+      },
+      "credit": {
+        "value": "20,000.00",
+        "source_text": "20,000.00"
+      },
+      "debit": {
+        "value": null,
+        "source_text": "-"
+      },
+      "utr": {
+        "value": "UTRNF2606010029",
+        "source_text": "UTRNF2606010029"
+      }
+    },
+    {
+      "date": {
+        "value": "15-04-202",
+        "source_text": "15-04-202"
+      },
+      "narration": {
+        "value": "WAGES PEENYA FACTORY",
+        "source_text": "WAGES PEENYA FACTORY"
+      },
+      "credit": {
+        "value": null,
+        "source_text": "-"
+      },
+      "debit": {
+        "value": "25,000.00",
+        "source_text": "25,000.00"
+      },
+      "utr": {
+        "value": null,
+        "source_text": "-"
+      }
+    },
+    {
+      "date": {
+        "value": "02-05-202",
+        "source_text": "02-05-202"
+      },
+      "narration": {
+        "value": "RTGS PART PAYMENT INV KP/INV/0412 -\nNORTHLINE FOODS",
+        "source_text": "RTGS PART PAYMENT INV KP/INV/0412 -\nNORTHLINE FOODS"
+      },
+      "credit": {
+        "value": "50,000.00",
+        "source_text": "50,000.00"
+      },
+      "debit": {
+        "value": null,
+        "source_text": "-"
+      },
+      "utr": {
+        "value": "UTRNF2612204891",
+        "source_text": "UTRNF2612204891"
+      }
+    }
+  ]
+}

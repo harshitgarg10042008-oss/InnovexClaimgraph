@@ -1,0 +1,74 @@
+{
+  "po_no": {
+    "value": "AR/PO/771",
+    "source_text": "No: AR/PO/771"
+  },
+  "po_date": {
+    "value": "10-03-2026",
+    "source_text": "Date: 10-03-2026"
+  },
+  "buyer_name": {
+    "value": "Ashoka Retail Pvt Ltd",
+    "source_text": "Buyer:\nAshoka Retail Pvt Ltd"
+  },
+  "supplier_name": {
+    "value": "Tara Textiles",
+    "source_text": "Supplier:\nTara Textiles"
+  },
+  "buyer_gstin": {
+    "value": "27FFFFF5555F1Z7",
+    "source_text": "GSTIN: 27FFFFF5555F1Z7"
+  },
+  "supplier_gstin": {
+    "value": "24EEEEE4444E1Z4",
+    "source_text": "GSTIN: 24EEEEE4444E1Z4"
+  },
+  "payment_terms_text": {
+    "value": "Credit Period: 30 days from delivery.",
+    "source_text": "Credit Period: 30 days from delivery."
+  },
+  "credit_days": {
+    "value": 30,
+    "source_text": "Credit Period: 30 days from delivery."
+  },
+  "lines": [
+    {
+      "item_code": {
+        "value": null,
+        "source_text": null
+      },
+      "description": {
+        "value": "Premium cotton shirting fabric (60s count)",
+        "source_text": "1\nPremium cotton shirting fabric (60s count)"
+      },
+      "hsn": {
+        "value": "52081190",
+        "source_text": "52081190"
+      },
+      "qty": {
+        "value": "1200",
+        "source_text": "1200"
+      },
+      "unit": {
+        "value": "metres",
+        "source_text": "metres"
+      },
+      "rate": {
+        "value": "210.00",
+        "source_text": "210.00"
+      }
+    }
+  ],
+  "gst_rate_pct": {
+    "value": "5.0",
+    "source_text": "IGST (5.0%)"
+  },
+  "taxable_total": {
+    "value": "2,52,000.00",
+    "source_text": "Taxable Value\n2,52,000.00"
+  },
+  "grand_total": {
+    "value": "2,64,600.00",
+    "source_text": "Total PO Value\n2,64,600.00"
+  }
+}

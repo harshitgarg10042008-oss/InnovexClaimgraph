@@ -1,0 +1,70 @@
+{
+  "invoice_no": {
+    "value": "INV-901",
+    "source_text": "No: INV-901"
+  },
+  "invoice_date": {
+    "value": "26-03-2026",
+    "source_text": "Date: 26-03-2026"
+  },
+  "po_ref": {
+    "value": "AR/PO/771",
+    "source_text": "PO Ref: AR/PO/771 dt. 10-03-2026"
+  },
+  "challan_ref": {
+    "value": "CH-302",
+    "source_text": "Challan: CH-302 dt. 25-03-2026"
+  },
+  "supplier_name": {
+    "value": "Tara Textiles",
+    "source_text": "Supplier:\nTara Textiles"
+  },
+  "buyer_name": {
+    "value": "Ashoka Retail Pvt Ltd",
+    "source_text": "Buyer:\nAshoka Retail Pvt Ltd"
+  },
+  "supplier_gstin": {
+    "value": "24EEEEE4444E1Z4",
+    "source_text": "GSTIN: 24EEEEE4444E1Z4"
+  },
+  "buyer_gstin": {
+    "value": "27FFFFF5555F1Z7",
+    "source_text": "GSTIN: 27FFFFF5555F1Z7"
+  },
+  "lines": [
+    {
+      "description": {
+        "value": "Premium cotton shirting fabric",
+        "source_text": "Premium cotton shirting fabric"
+      },
+      "hsn": {
+        "value": "52081190",
+        "source_text": "52081190"
+      },
+      "qty": {
+        "value": "1200 m",
+        "source_text": "1200 m"
+      },
+      "rate": {
+        "value": "210.00",
+        "source_text": "210.00"
+      },
+      "amount": {
+        "value": "2,64,600.00",
+        "source_text": "2,64,600.00"
+      }
+    }
+  ],
+  "taxable_total": {
+    "value": "2,52,000.00",
+    "source_text": "Taxable Amount\n2,52,000.00"
+  },
+  "gst_amount": {
+    "value": "12,600.00",
+    "source_text": "IGST (5%)\n12,600.00"
+  },
+  "grand_total": {
+    "value": "2,64,600.00",
+    "source_text": "Total Payable\n2,64,600.00"
+  }
+}

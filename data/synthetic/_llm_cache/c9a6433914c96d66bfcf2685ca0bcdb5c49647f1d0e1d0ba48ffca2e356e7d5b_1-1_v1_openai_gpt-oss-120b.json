@@ -1,0 +1,22 @@
+{
+  "udyam_no": {
+    "value": "UDYAM-GJ-03-0098765",
+    "source_text": "UDYAM REGISTRATION NUMBER: UDYAM-GJ-03-0098765"
+  },
+  "enterprise_name": {
+    "value": "Tara Textiles",
+    "source_text": "Name of Enterprise\nTara Textiles"
+  },
+  "enterprise_type": {
+    "value": "Micro",
+    "source_text": "Type of Enterprise\nMicro"
+  },
+  "activity": {
+    "value": "Manufacturer",
+    "source_text": "Major Activity\nManufacturer"
+  },
+  "registration_date": {
+    "value": "20-05-2026",
+    "source_text": "Date of Registration\n20-05-2026"
+  }
+}

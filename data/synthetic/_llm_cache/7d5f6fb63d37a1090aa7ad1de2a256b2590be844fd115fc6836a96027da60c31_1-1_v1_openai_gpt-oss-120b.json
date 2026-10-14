@@ -1,0 +1,22 @@
+{
+  "udyam_no": {
+    "value": "UDYAM-KA-02-0054321",
+    "source_text": "UDYAM REGISTRATION NUMBER: UDYAM-KA-02-0054321"
+  },
+  "enterprise_name": {
+    "value": "Kaveri Packaging Works",
+    "source_text": "Name of Enterprise\nKaveri Packaging Works"
+  },
+  "enterprise_type": {
+    "value": "Small",
+    "source_text": "Type of Enterprise\nSmall"
+  },
+  "activity": {
+    "value": "Manufacturer",
+    "source_text": "Major Activity\nManufacturer"
+  },
+  "registration_date": {
+    "value": "01-08-2023",
+    "source_text": "Date of Registration\n01-08-2023"
+  }
+}

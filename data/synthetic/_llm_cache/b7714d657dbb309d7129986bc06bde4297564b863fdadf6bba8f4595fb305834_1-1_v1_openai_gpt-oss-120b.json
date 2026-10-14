@@ -1,0 +1,22 @@
+{
+  "udyam_no": {
+    "value": "UDYAM-DL-01-0012345",
+    "source_text": "UDYAM REGISTRATION NUMBER: UDYAM-DL-01-0012345"
+  },
+  "enterprise_name": {
+    "value": "Sharma Auto Components",
+    "source_text": "Name of Enterprise\nSharma Auto Components"
+  },
+  "enterprise_type": {
+    "value": "Micro",
+    "source_text": "Type of Enterprise\nMicro"
+  },
+  "activity": {
+    "value": "Manufacturer",
+    "source_text": "Major Activity\nManufacturer"
+  },
+  "registration_date": {
+    "value": "12-03-2024",
+    "source_text": "Date of Registration\n12-03-2024"
+  }
+}

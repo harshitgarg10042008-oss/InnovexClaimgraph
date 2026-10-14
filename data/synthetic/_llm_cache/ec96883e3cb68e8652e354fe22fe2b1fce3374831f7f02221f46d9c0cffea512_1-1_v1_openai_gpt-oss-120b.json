@@ -1,0 +1,70 @@
+{
+  "invoice_no": {
+    "value": "INV-1042",
+    "source_text": "No: INV-1042"
+  },
+  "invoice_date": {
+    "value": "22-05-2026",
+    "source_text": "Date: 22-05-2026"
+  },
+  "po_ref": {
+    "value": "OM/PO/5540",
+    "source_text": "PO Ref: OM/PO/5540"
+  },
+  "challan_ref": {
+    "value": "CH-881",
+    "source_text": "Challan Ref: CH-881"
+  },
+  "supplier_name": {
+    "value": "Raman Fasteners",
+    "source_text": "Supplier:\nRaman Fasteners"
+  },
+  "buyer_name": {
+    "value": "Orbit Machines Pvt Ltd",
+    "source_text": "Buyer:\nOrbit Machines Pvt Ltd"
+  },
+  "supplier_gstin": {
+    "value": "03GGGGG6666G1Z9",
+    "source_text": "GSTIN: 03GGGGG6666G1Z9"
+  },
+  "buyer_gstin": {
+    "value": "08HHHHH7777H1Z3",
+    "source_text": "GSTIN: 08HHHHH7777H1Z3"
+  },
+  "lines": [
+    {
+      "description": {
+        "value": "Hex bolt M12 x 50mm",
+        "source_text": "Hex bolt M12 x 50mm"
+      },
+      "hsn": {
+        "value": "73181500",
+        "source_text": "73181500"
+      },
+      "qty": {
+        "value": "1000 pcs",
+        "source_text": "1000 pcs"
+      },
+      "rate": {
+        "value": "14.00",
+        "source_text": "14.00"
+      },
+      "amount": {
+        "value": "16,520.00",
+        "source_text": "16,520.00"
+      }
+    }
+  ],
+  "taxable_total": {
+    "value": "14,000.00",
+    "source_text": "Taxable Amount\n14,000.00"
+  },
+  "gst_amount": {
+    "value": "2,520.00",
+    "source_text": "IGST (18%)\n2,520.00"
+  },
+  "grand_total": {
+    "value": "16,520.00",
+    "source_text": "Total Invoice Value\n16,520.00"
+  }
+}

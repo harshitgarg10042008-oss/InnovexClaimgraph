@@ -1,0 +1,104 @@
+{
+  "account_holder": {
+    "value": "Sharma Auto Components",
+    "source_text": "Account Holder: Sharma Auto Components"
+  },
+  "period_from": {
+    "value": "01-06-2026",
+    "source_text": "01-06-2026 to 10-07-2026"
+  },
+  "period_to": {
+    "value": "10-07-2026",
+    "source_text": "01-06-2026 to 10-07-2026"
+  },
+  "transactions": [
+    {
+      "date": {
+        "value": "05-06-202",
+        "source_text": "05-06-202"
+      },
+      "narration": {
+        "value": "OPENING BALANCE",
+        "source_text": "OPENING BALANCE"
+      },
+      "credit": {
+        "value": "-",
+        "source_text": "-"
+      },
+      "debit": {
+        "value": "-",
+        "source_text": "-"
+      },
+      "utr": {
+        "value": "-",
+        "source_text": "-"
+      }
+    },
+    {
+      "date": {
+        "value": "15-06-202",
+        "source_text": "15-06-202"
+      },
+      "narration": {
+        "value": "NEFT-RAW MATERIAL STEEL-RAW/881",
+        "source_text": "NEFT-RAW MATERIAL STEEL-RAW/881"
+      },
+      "credit": {
+        "value": "85,000.00",
+        "source_text": "85,000.00"
+      },
+      "debit": {
+        "value": "-",
+        "source_text": "-"
+      },
+      "utr": {
+        "value": "-",
+        "source_text": "-"
+      }
+    },
+    {
+      "date": {
+        "value": "30-06-202",
+        "source_text": "30-06-202"
+      },
+      "narration": {
+        "value": "CMS/PART PAY INV-7731/MERIDIAN MOTORS PVT LTD",
+        "source_text": "CMS/PART PAY INV-7731/MERIDIAN MOTORS PVT LTD"
+      },
+      "credit": {
+        "value": "1,98,000.00",
+        "source_text": "1,98,000.00"
+      },
+      "debit": {
+        "value": "-",
+        "source_text": "-"
+      },
+      "utr": {
+        "value": "UTRB26181049281",
+        "source_text": "UTRB26181049281"
+      }
+    },
+    {
+      "date": {
+        "value": "05-07-202",
+        "source_text": "05-07-202"
+      },
+      "narration": {
+        "value": "ELECTRICITY BILL TPDDL",
+        "source_text": "ELECTRICITY BILL TPDDL"
+      },
+      "credit": {
+        "value": "-",
+        "source_text": "-"
+      },
+      "debit": {
+        "value": "18,200.00",
+        "source_text": "18,200.00"
+      },
+      "utr": {
+        "value": "-",
+        "source_text": "-"
+      }
+    }
+  ]
+}

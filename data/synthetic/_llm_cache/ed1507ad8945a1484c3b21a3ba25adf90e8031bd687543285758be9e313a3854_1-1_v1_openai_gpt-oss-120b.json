@@ -1,0 +1,70 @@
+{
+  "invoice_no": {
+    "value": "KP/INV/0412-A",
+    "source_text": "No: KP/INV/0412-A"
+  },
+  "invoice_date": {
+    "value": "28-03-2026",
+    "source_text": "Date: 28-03-2026"
+  },
+  "po_ref": {
+    "value": "NF/PO/118",
+    "source_text": "PO Ref: NF/PO/118"
+  },
+  "challan_ref": {
+    "value": "KP/CH/045 dt. 18-03-2026",
+    "source_text": "Challan Ref: KP/CH/045 dt. 18-03-2026"
+  },
+  "supplier_name": {
+    "value": "Kaveri Packaging Works",
+    "source_text": "Supplier Details:\nKaveri Packaging Works"
+  },
+  "buyer_name": {
+    "value": "Northline Foods Ltd",
+    "source_text": "Buyer (Bill To):\nNorthline Foods Ltd"
+  },
+  "supplier_gstin": {
+    "value": "29CCCCC2222C1Z8",
+    "source_text": "GSTIN: 29CCCCC2222C1Z8"
+  },
+  "buyer_gstin": {
+    "value": "06DDDDD3333D1Z1",
+    "source_text": "GSTIN: 06DDDDD3333D1Z1"
+  },
+  "lines": [
+    {
+      "description": {
+        "value": "Corrugated master cartons 5-ply",
+        "source_text": "Corrugated master cartons 5-ply"
+      },
+      "hsn": {
+        "value": "48191010",
+        "source_text": "48191010"
+      },
+      "qty": {
+        "value": "2000 pcs",
+        "source_text": "2000 pcs"
+      },
+      "rate": {
+        "value": "36.50",
+        "source_text": "36.50"
+      },
+      "amount": {
+        "value": "73,000.00",
+        "source_text": "73,000.00"
+      }
+    }
+  ],
+  "taxable_total": {
+    "value": "73,000.00",
+    "source_text": "Total Taxable\n73,000.00"
+  },
+  "gst_amount": {
+    "value": "13,140.00",
+    "source_text": "Total IGST\n13,140.00"
+  },
+  "grand_total": {
+    "value": "86,140.00",
+    "source_text": "Net Payable\n86,140.00"
+  }
+}

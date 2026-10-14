@@ -7,3 +7,9 @@ alembic==1.14.0
 uvicorn[standard]==0.34.0
 reportlab==5.0.1
 pillow==12.3.0
+pymupdf==1.25.3
+pytesseract==0.3.13
+opencv-python-headless==4.11.0.86
+rapidfuzz==3.12.2
+openai==1.65.5
+python-multipart==0.0.20

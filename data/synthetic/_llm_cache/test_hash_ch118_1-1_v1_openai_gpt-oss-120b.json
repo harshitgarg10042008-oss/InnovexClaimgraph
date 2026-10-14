@@ -1,0 +1,43 @@
+{
+  "challan_no": {
+    "value": null,
+    "source_text": null
+  },
+  "challan_date": {
+    "value": null,
+    "source_text": null
+  },
+  "po_ref": {
+    "value": null,
+    "source_text": null
+  },
+  "supplier_name": {
+    "value": null,
+    "source_text": null
+  },
+  "buyer_name": {
+    "value": null,
+    "source_text": null
+  },
+  "lines": [],
+  "stamp_text": {
+    "value": null,
+    "source_text": null
+  },
+  "stamp_date": {
+    "value": null,
+    "source_text": null
+  },
+  "received_by": {
+    "value": null,
+    "source_text": null
+  },
+  "rejection_reason": {
+    "value": null,
+    "source_text": null
+  },
+  "remarks": {
+    "value": null,
+    "source_text": null
+  }
+}

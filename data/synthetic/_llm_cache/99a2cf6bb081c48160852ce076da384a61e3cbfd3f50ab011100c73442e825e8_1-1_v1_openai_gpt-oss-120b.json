@@ -1,0 +1,66 @@
+{
+  "challan_no": {
+    "value": "CH-118",
+    "source_text": "No: CH-118"
+  },
+  "challan_date": {
+    "value": "20-04-2026",
+    "source_text": "Date: 20-04-2026"
+  },
+  "po_ref": {
+    "value": "MM/PO/2291 dated 02-04-2026",
+    "source_text": "PO Reference: MM/PO/2291 dated 02-04-2026"
+  },
+  "supplier_name": {
+    "value": "Sharma Auto Components",
+    "source_text": "Consignor / Supplier:\nSharma Auto Components"
+  },
+  "buyer_name": {
+    "value": "Meridian Motors Pvt Ltd",
+    "source_text": "Consignee / Buyer:\nMeridian Motors Pvt Ltd"
+  },
+  "lines": [
+    {
+      "item_description": {
+        "value": "Brake bracket BB-210",
+        "source_text": "1\nBrake bracket BB-210"
+      },
+      "dispatched_qty": {
+        "value": "460",
+        "source_text": "Supplied Qty\n460"
+      },
+      "accepted_qty": {
+        "value": "460",
+        "source_text": "RECEIVED IN GOOD CONDITION (460\nPCS)"
+      },
+      "rejected_qty": {
+        "value": null,
+        "source_text": null
+      },
+      "unit": {
+        "value": "pcs",
+        "source_text": "pcs"
+      }
+    }
+  ],
+  "stamp_text": {
+    "value": null,
+    "source_text": null
+  },
+  "stamp_date": {
+    "value": null,
+    "source_text": null
+  },
+  "received_by": {
+    "value": "R. Kulkarni",
+    "source_text": "SIGN: R. Kulkarni"
+  },
+  "rejection_reason": {
+    "value": null,
+    "source_text": null
+  },
+  "remarks": {
+    "value": null,
+    "source_text": null
+  }
+}

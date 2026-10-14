@@ -1,0 +1,48 @@
+{
+  "messages": [
+    {
+      "date": {
+        "value": "25 Apr 2026",
+        "source_text": "Date: 25 Apr 2026, 11:42 AM"
+      },
+      "sender": {
+        "value": "accounts@sharmaauto.in",
+        "source_text": "From: accounts@sharmaauto.in"
+      },
+      "text_snippet": {
+        "value": "the remaining 40 units are on backorder and will be dispatched by 10-05-2026 without fail",
+        "source_text": "We confirm that the remaining 40 units are on backorder and will be dispatched by 10-05-2026 without fail."
+      }
+    },
+    {
+      "date": {
+        "value": "24 Apr 2026",
+        "source_text": "Date: 24 Apr 2026, 04:15 PM"
+      },
+      "sender": {
+        "value": "purchase.chakan@meridianmotors.com",
+        "source_text": "From: purchase.chakan@meridianmotors.com"
+      },
+      "text_snippet": {
+        "value": "Please update status on remaining 40 units.",
+        "source_text": "Please update status on remaining 40 units."
+      }
+    }
+  ],
+  "communications": [
+    {
+      "kind": {
+        "value": "backorder",
+        "source_text": "the remaining 40 units are on backorder"
+      },
+      "message_date": {
+        "value": "25 Apr 2026",
+        "source_text": "Date: 25 Apr 2026, 11:42 AM"
+      },
+      "quote": {
+        "value": "We confirm that the remaining 40 units are on backorder and will be dispatched by 10-05-2026 without fail.",
+        "source_text": "We confirm that the remaining 40 units are on backorder and will be dispatched by 10-05-2026 without fail."
+      }
+    }
+  ]
+}

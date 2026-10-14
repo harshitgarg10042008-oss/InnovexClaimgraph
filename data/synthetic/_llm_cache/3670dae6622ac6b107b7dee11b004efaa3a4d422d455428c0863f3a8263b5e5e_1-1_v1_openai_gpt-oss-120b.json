@@ -1,0 +1,60 @@
+{
+  "account_holder": {
+    "value": "Raman Fasteners",
+    "source_text": "Account Holder: Raman Fasteners"
+  },
+  "period_from": {
+    "value": "01-07-2026",
+    "source_text": "Date: 01-07-2026 to 31-07-2026"
+  },
+  "period_to": {
+    "value": "31-07-2026",
+    "source_text": "Date: 01-07-2026 to 31-07-2026"
+  },
+  "transactions": [
+    {
+      "date": {
+        "value": "01-07-202",
+        "source_text": "01-07-202"
+      },
+      "narration": {
+        "value": "OPENING BALANCE",
+        "source_text": "OPENING BALANCE"
+      },
+      "credit": {
+        "value": null,
+        "source_text": "-"
+      },
+      "debit": {
+        "value": null,
+        "source_text": "-"
+      },
+      "utr": {
+        "value": null,
+        "source_text": "-"
+      }
+    },
+    {
+      "date": {
+        "value": "15-07-202",
+        "source_text": "15-07-202"
+      },
+      "narration": {
+        "value": "NEFT PART PAY INV-1042 - ORBIT MACHINES",
+        "source_text": "NEFT PART PAY INV-1042 - ORBIT MACHINES"
+      },
+      "credit": {
+        "value": "10,000.00",
+        "source_text": "10,000.00"
+      },
+      "debit": {
+        "value": null,
+        "source_text": "-"
+      },
+      "utr": {
+        "value": "UTRORB261960012",
+        "source_text": "UTRORB261960012"
+      }
+    }
+  ]
+}

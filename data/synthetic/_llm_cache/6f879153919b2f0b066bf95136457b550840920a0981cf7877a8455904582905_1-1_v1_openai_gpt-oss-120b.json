@@ -1,0 +1,74 @@
+{
+  "po_no": {
+    "value": "NF/PO/118",
+    "source_text": "No: NF/PO/118"
+  },
+  "po_date": {
+    "value": "05-03-2026",
+    "source_text": "Date: 05-03-2026"
+  },
+  "buyer_name": {
+    "value": "Northline Foods Ltd",
+    "source_text": "Northline Foods Ltd"
+  },
+  "supplier_name": {
+    "value": "Kaveri Packaging Works",
+    "source_text": "Kaveri Packaging Works"
+  },
+  "buyer_gstin": {
+    "value": "06DDDDD3333D1Z1",
+    "source_text": "GSTIN: 06DDDDD3333D1Z1"
+  },
+  "supplier_gstin": {
+    "value": "29CCCCC2222C1Z8",
+    "source_text": "GSTIN: 29CCCCC2222C1Z8"
+  },
+  "payment_terms_text": {
+    "value": "1. Payment: 30 days credit from delivery date.\n2. Advance of Rs 20,000.00 payable with order against proforma.",
+    "source_text": "1. Payment: 30 days credit from delivery date.\n2. Advance of Rs 20,000.00 payable with order against proforma."
+  },
+  "credit_days": {
+    "value": 30,
+    "source_text": "30 days credit"
+  },
+  "lines": [
+    {
+      "item_code": {
+        "value": null,
+        "source_text": null
+      },
+      "description": {
+        "value": "Corrugated master cartons 5-ply (food grade)",
+        "source_text": "Corrugated master cartons 5-ply (food grade)"
+      },
+      "hsn": {
+        "value": "48191010",
+        "source_text": "48191010"
+      },
+      "qty": {
+        "value": "2000",
+        "source_text": "2000"
+      },
+      "unit": {
+        "value": "pcs",
+        "source_text": "pcs"
+      },
+      "rate": {
+        "value": "36.50",
+        "source_text": "36.50"
+      }
+    }
+  ],
+  "gst_rate_pct": {
+    "value": "18.0%",
+    "source_text": "IGST (18.0%)"
+  },
+  "taxable_total": {
+    "value": "73,000.00",
+    "source_text": "Taxable Value\n73,000.00"
+  },
+  "grand_total": {
+    "value": "86,140.00",
+    "source_text": "Total PO Amount\n86,140.00"
+  }
+}

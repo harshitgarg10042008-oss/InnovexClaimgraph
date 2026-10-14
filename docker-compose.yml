@@ -30,9 +30,13 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://claimgraph:claimgraph@db:5432/claimgraph}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}
       STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
-      LLM_EXTRACT_MODEL: ${LLM_EXTRACT_MODEL:-}
-      LLM_CLASSIFY_MODEL: ${LLM_CLASSIFY_MODEL:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
+      LLM_EXTRACT_MODEL: ${LLM_EXTRACT_MODEL:-openai/gpt-oss-120b}
+      LLM_CLASSIFY_MODEL: ${LLM_CLASSIFY_MODEL:-openai/gpt-oss-20b}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODE: ${LLM_MODE:-replay}
+      LLM_MAX_CONCURRENCY: ${LLM_MAX_CONCURRENCY:-2}
     volumes:
       - ./backend:/app
       - ./data:/data
