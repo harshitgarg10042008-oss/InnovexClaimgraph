@@ -74,7 +74,11 @@ def test_expected_json_schema_and_math(expected_file: Path):
     total_ordered_qty = sum(line["qty"] for po in data["purchase_orders"] for line in po["lines"])
     assert abs(total_ordered_qty - ledger["ordered_qty"]) < 0.01
 
-    total_delivered_qty = sum(line["qty"] for d in data["deliveries"] for line in d["lines"])
+    # For deliveries, use accepted_qty if present (case D rejection scenario), else qty
+    def delivery_accepted_qty(line):
+        return line.get("accepted_qty", line["qty"])
+
+    total_delivered_qty = sum(delivery_accepted_qty(line) for d in data["deliveries"] for line in d["lines"])
     assert abs(total_delivered_qty - ledger["delivered_qty"]) < 0.01
 
     total_paid_payments = sum(p["amount"] for p in data["payments"])
@@ -116,3 +120,121 @@ def test_synthetic_files_exist_and_hashes_match():
     with open(case_d_scan, "rb") as fp:
         header = fp.read(3)
         assert header == b"\xff\xd8\xff", "challan_ch_881.jpg must be a valid JPEG file"
+
+
+# ---------------------------------------------------------------------------
+# Case-specific number assertions (Part 2 / acceptance check)
+# ---------------------------------------------------------------------------
+
+def load_case(case_id: str, stage: str) -> dict:
+    synthetic_dir = get_synthetic_dir()
+    case_dir = synthetic_dir / case_id
+    # Try both expected_{stage}.json and expected.json
+    stage_file = case_dir / f"expected_{stage}.json"
+    if not stage_file.exists():
+        stage_file = case_dir / "expected.json"
+    with open(stage_file, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def test_case_a_base_numbers():
+    data = load_case("case_a", "base")
+    inv = data["invoices"][0]
+    assert inv["taxable"] == 410000.0,  f"Case A taxable: {inv['taxable']}"
+    assert inv["gst"] == 73800.0,        f"Case A GST: {inv['gst']}"
+    assert inv["total"] == 483800.0,     f"Case A total: {inv['total']}"
+
+    ledger = data["expected_ledger"]
+    # delivered_value = 460 * 820 * 1.18
+    assert abs(ledger["delivered_value"] - 445096.0) < 0.01, f"delivered_value: {ledger['delivered_value']}"
+    assert abs(ledger["paid_total"] - 200000.0) < 0.01, f"paid_total: {ledger['paid_total']}"
+    assert abs(ledger["outstanding_on_delivered_goods"] - 245096.0) < 0.01, \
+        f"outstanding_on_delivered_goods: {ledger['outstanding_on_delivered_goods']}"
+    assert abs(ledger["outstanding_on_full_invoice"] - 283800.0) < 0.01, \
+        f"outstanding_on_full_invoice: {ledger['outstanding_on_full_invoice']}"
+    # Cross-check: outstanding = delivered_value - paid
+    assert abs(ledger["outstanding_on_delivered_goods"] - (ledger["delivered_value"] - ledger["paid_total"])) < 0.01
+
+
+def test_case_a_after_email_numbers():
+    data = load_case("case_a", "after_email")
+    ledger = data["expected_ledger"]
+    # Still only 460 delivered — same as base
+    assert abs(ledger["outstanding_on_delivered_goods"] - 245096.0) < 0.01
+    assert abs(ledger["outstanding_on_full_invoice"] - 283800.0) < 0.01
+    assert abs(ledger["paid_total"] - 200000.0) < 0.01
+
+
+def test_case_a_after_delivery_numbers():
+    data = load_case("case_a", "after_delivery")
+    ledger = data["expected_ledger"]
+    # All 500 delivered — both outstanding amounts converge
+    assert abs(ledger["delivered_qty"] - 500.0) < 0.01
+    assert abs(ledger["outstanding_on_delivered_goods"] - 283800.0) < 0.01
+    assert abs(ledger["outstanding_on_full_invoice"] - 283800.0) < 0.01
+
+
+def test_case_b_numbers():
+    data = load_case("case_b", "base")
+    # Only the non-duplicate invoice counts for billed totals
+    inv = data["invoices"][0]
+    assert inv["taxable"] == 73000.0,   f"Case B taxable: {inv['taxable']}"
+    assert inv["gst"] == 13140.0,       f"Case B GST: {inv['gst']}"
+    assert inv["total"] == 86140.0,     f"Case B total: {inv['total']}"
+
+    ledger = data["expected_ledger"]
+    assert abs(ledger["billed_value"] - 86140.0) < 0.01, f"billed_value: {ledger['billed_value']}"
+    assert abs(ledger["paid_total"] - 70000.0) < 0.01,   f"paid_total: {ledger['paid_total']}"
+    assert abs(ledger["outstanding_principal"] - 16140.0) < 0.01, \
+        f"outstanding_principal: {ledger['outstanding_principal']}"
+    # Cross-check math
+    assert abs(ledger["outstanding_principal"] - (ledger["billed_value"] - ledger["paid_total"])) < 0.01
+
+
+def test_case_c_numbers():
+    data = load_case("case_c", "base")
+    inv = data["invoices"][0]
+    assert inv["taxable"] == 252000.0,  f"Case C taxable: {inv['taxable']}"
+    assert inv["gst"] == 12600.0,       f"Case C GST: {inv['gst']}"
+    assert inv["total"] == 264600.0,    f"Case C total: {inv['total']}"
+
+    ledger = data["expected_ledger"]
+    assert abs(ledger["paid_total"] - 0.0) < 0.01, f"paid_total: {ledger['paid_total']}"
+    assert abs(ledger["billed_value"] - 264600.0) < 0.01, f"billed_value: {ledger['billed_value']}"
+
+
+def test_case_d_numbers_and_quantities():
+    data = load_case("case_d", "base")
+    inv = data["invoices"][0]
+    assert inv["taxable"] == 14000.0,   f"Case D taxable: {inv['taxable']}"
+    assert inv["gst"] == 2520.0,        f"Case D GST: {inv['gst']}"
+    assert inv["total"] == 16520.0,     f"Case D total: {inv['total']}"
+
+    delivery = data["deliveries"][0]
+    line = delivery["lines"][0]
+
+    # Dispatched/accepted/rejected quantities
+    assert abs(line["dispatched_qty"] - 1000.0) < 0.01, f"dispatched_qty: {line['dispatched_qty']}"
+    assert abs(line["accepted_qty"] - 980.0) < 0.01,    f"accepted_qty: {line['accepted_qty']}"
+    assert abs(line["rejected_qty"] - 20.0) < 0.01,     f"rejected_qty: {line['rejected_qty']}"
+    assert line["rejection_reason"] == "thread-damaged", f"rejection_reason: {line['rejection_reason']}"
+    assert "thread-damaged" in delivery["rejection_reason"], f"delivery rejection_reason: {delivery['rejection_reason']}"
+
+    ledger = data["expected_ledger"]
+    assert abs(ledger["billed_value"] - 16520.0) < 0.01,  f"billed_value: {ledger['billed_value']}"
+    # accepted_value = 980 * 14 * 1.18 = 16189.60
+    assert abs(ledger["accepted_value"] - 16189.60) < 0.01, f"accepted_value: {ledger['accepted_value']}"
+    assert abs(ledger["paid_total"] - 10000.0) < 0.01, f"paid_total: {ledger['paid_total']}"
+    assert abs(ledger["outstanding_on_accepted_goods"] - 6189.60) < 0.01, \
+        f"outstanding_on_accepted_goods: {ledger['outstanding_on_accepted_goods']}"
+    assert abs(ledger["outstanding_on_full_invoice"] - 6520.0) < 0.01, \
+        f"outstanding_on_full_invoice: {ledger['outstanding_on_full_invoice']}"
+
+    # Cross-check
+    assert abs(ledger["outstanding_on_accepted_goods"] - (ledger["accepted_value"] - ledger["paid_total"])) < 0.01
+    assert abs(ledger["outstanding_on_full_invoice"] - (ledger["billed_value"] - ledger["paid_total"])) < 0.01
+
+    # Findings catalogue check
+    codes = [f["code"] for f in data["expected_findings"]]
+    assert "QTY_MISMATCH" in codes,     "GOODS_REJECTED finding missing"
+    assert "GOODS_REJECTED" in codes,   "GOODS_REJECTED finding missing"

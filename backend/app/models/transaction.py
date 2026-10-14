@@ -61,6 +61,7 @@ class Delivery(Base):
     challan_no: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     delivery_date: Mapped[date] = mapped_column(Date, nullable=False)
     received_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     acceptance_fact_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
     )
@@ -82,6 +83,10 @@ class DeliveryLine(Base):
     )
     item_key: Mapped[str] = mapped_column(String(100), nullable=False)
     qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    dispatched_qty: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
+    accepted_qty: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
+    rejected_qty: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     delivery = relationship("Delivery", back_populates="lines")
 
