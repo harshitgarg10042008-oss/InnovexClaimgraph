@@ -1,4 +1,5 @@
 import logging
+import re as _re
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -92,6 +93,31 @@ REQUIRED_FIELDS_BY_KIND: dict[str, list[str]] = {
     ],
 }
 
+# Optional fields: absent value is normal (not an error). Do NOT emit null facts for these.
+OPTIONAL_FIELDS_BY_KIND: dict[str, list[str]] = {
+    "CHALLAN": [
+        "lines[0].rejected_qty",
+        "lines[0].item_code",
+        "rejection_reason",
+        "remarks",
+        "stamp_date",
+    ],
+    "INVOICE": [
+        "lines[0].hsn",
+        "purchase_order_ref",
+        "eway_bill",
+    ],
+    "PO": [
+        "remarks",
+        "special_conditions",
+    ],
+    "BANK_STATEMENT": [
+        "transactions[0].credit",
+        "transactions[0].debit",
+        "transactions[0].balance",
+    ],
+}
+
 
 class ExtractedFactItem(BaseModel):
     field_path: str
@@ -139,8 +165,8 @@ def extract_document_facts(
     used_vision = False
     extracted_obj: Any = None
 
-    # If this is an image or scan with low confidence, attempt vision fallback first
-    if is_image_or_low_conf and page_images:
+    # Vision fallback: only if explicitly enabled via LLM_VISION_ENABLED=true
+    if is_image_or_low_conf and page_images and settings.LLM_VISION_ENABLED:
         try:
             vision_prompt = (
                 f"Document Type: {kind}\n"
@@ -195,8 +221,20 @@ def extract_document_facts(
         # Perform cross-field mathematical validations on document
         _apply_document_math_validations(extracted_obj, facts)
 
+    # Deterministic regex fallback for challan stamp fields the LLM misses.
+    # The PDF text layer contains "DATE: DD-MM-YYYY | SIGN: Name" — always prefer this over null.
+    if kind == "CHALLAN" and not used_vision:
+        _apply_challan_stamp_fallback(full_text, pages_words, ocr_avg_conf, facts)
+
+    # Deterministic fallback for bank statement transaction dates split across PDF table lines.
+    if kind == "BANK_STATEMENT" and not used_vision:
+        _apply_bank_date_dewrap_fallback(facts)
+
+
     # NO SILENT MISSING FIELDS: Check all required fields for this document type
+    # Note: Optional fields (rejected_qty, remarks, etc.) must NOT be emitted as null facts.
     req_fields = REQUIRED_FIELDS_BY_KIND.get(kind, [])
+    opt_fields_prefixes = [f.split(".")[-1] for f in OPTIONAL_FIELDS_BY_KIND.get(kind, [])]
     fallback_extractor = (
         f"vision:{settings.LLM_VISION_MODEL}"
         if used_vision
@@ -234,6 +272,14 @@ def extract_document_facts(
                     if not any("REQUIRED_FIELD_MISSING" in flg for flg in ef.validation_flags):
                         ef.validation_flags.append("REQUIRED_FIELD_MISSING: not found")
                     ef.confidence = Decimal("0.00")
+
+    # Remove any extracted facts for optional fields that have null/empty values
+    # (absent optional fields are normal; do not pollute the review queue)
+    def _is_optional(fp: str) -> bool:
+        tail = fp.split(".")[-1]
+        return tail in opt_fields_prefixes
+
+    facts = [f for f in facts if f.raw_value is not None or not _is_optional(f.field_path)]
 
     return facts
 
@@ -443,6 +489,102 @@ def _add_flag_to_fact(
             fact.validation_flags.extend(flags)
             fact.status = "needs_review"
             fact.confidence = Decimal(str(round(float(fact.confidence) * 0.7, 4)))
+
+
+def _apply_challan_stamp_fallback(
+    full_text: str,
+    pages_words: dict[int, list[WordBox]],
+    ocr_avg_conf: float,
+    facts: list[ExtractedFactItem],
+) -> None:
+    """Deterministic regex fallback: reads 'DATE: DD-MM-YYYY | SIGN: Name' from text layer.
+
+    Only fills stamp_text / stamp_date when the LLM returned null for those fields.
+    Source of truth is the PDF text, not any LLM output.
+    """
+    # Pattern: DATE: 20-04-2026 | SIGN: R. Kulkarni
+    stamp_pat = _re.compile(
+        r"DATE:\s*(\d{2}[-/]\d{2}[-/]\d{4})\s*\|?\s*SIGN:\s*(.+?)(?:\n|$)",
+        _re.IGNORECASE,
+    )
+    m = stamp_pat.search(full_text)
+    if not m:
+        return
+
+    raw_date = m.group(1).strip()
+    raw_sign = m.group(2).strip()
+
+    norm_date, _ = normalize_date(raw_date)
+
+    # stamp_text: fill if null
+    stamp_text_fact = next((f for f in facts if f.field_path == "stamp_text"), None)
+    if stamp_text_fact is None or stamp_text_fact.raw_value is None:
+        loc = locate_source_text(raw_sign, pages_words)
+        if stamp_text_fact is None:
+            facts.append(ExtractedFactItem(
+                field_path="stamp_text",
+                raw_value=raw_sign,
+                normalised_value=raw_sign,
+                source_text=m.group(0).strip(),
+                page_no=loc.page_no,
+                bbox=loc.bbox,
+                confidence=Decimal("0.95"),
+                status="auto",
+                extractor_version=f"{PROMPT_VERSION}:regex_stamp_fallback",
+            ))
+        else:
+            stamp_text_fact.raw_value = raw_sign
+            stamp_text_fact.normalised_value = raw_sign
+            stamp_text_fact.source_text = m.group(0).strip()
+            stamp_text_fact.confidence = Decimal("0.95")
+            stamp_text_fact.status = "auto"
+            stamp_text_fact.validation_flags = []
+            stamp_text_fact.extractor_version = f"{PROMPT_VERSION}:regex_stamp_fallback"
+
+    # stamp_date: fill if null (optional field)
+    stamp_date_fact = next((f for f in facts if f.field_path == "stamp_date"), None)
+    if stamp_date_fact is None or stamp_date_fact.raw_value is None:
+        if norm_date:
+            loc = locate_source_text(raw_date, pages_words)
+            if stamp_date_fact is None:
+                facts.append(ExtractedFactItem(
+                    field_path="stamp_date",
+                    raw_value=raw_date,
+                    normalised_value=norm_date,
+                    source_text=m.group(0).strip(),
+                    page_no=loc.page_no,
+                    bbox=loc.bbox,
+                    confidence=Decimal("0.95"),
+                    status="auto",
+                    extractor_version=f"{PROMPT_VERSION}:regex_stamp_fallback",
+                ))
+            else:
+                stamp_date_fact.raw_value = raw_date
+                stamp_date_fact.normalised_value = norm_date
+                stamp_date_fact.source_text = m.group(0).strip()
+                stamp_date_fact.confidence = Decimal("0.95")
+                stamp_date_fact.status = "auto"
+                stamp_date_fact.validation_flags = []
+                stamp_date_fact.extractor_version = f"{PROMPT_VERSION}:regex_stamp_fallback"
+
+
+def _apply_bank_date_dewrap_fallback(facts: list[ExtractedFactItem]) -> None:
+    """Re-parses transaction dates that got PDF-wrapped (e.g. '05-06-202' with year on next line).
+
+    The normalize_date function now handles this, but facts may already be built with the
+    truncated raw value. Re-normalise any transaction date that failed parsing.
+    """
+    for fact in facts:
+        if "transaction" in fact.field_path and "date" in fact.field_path:
+            if fact.raw_value and "INVALID_DATE_FORMAT" in fact.validation_flags:
+                norm, flags = normalize_date(fact.raw_value)
+                if norm and "INVALID_DATE_FORMAT" not in flags:
+                    fact.normalised_value = norm
+                    fact.validation_flags = [f for f in fact.validation_flags if f != "INVALID_DATE_FORMAT"]
+                    fact.validation_flags.extend(flags)
+                    if not fact.validation_flags:
+                        fact.status = "auto"
+                        fact.confidence = Decimal("0.90")
 
 
 def save_facts_to_db(

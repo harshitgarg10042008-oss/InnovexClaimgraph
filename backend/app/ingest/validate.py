@@ -41,6 +41,7 @@ def normalize_date(date_raw: Any, as_of_date_str: str = "2026-10-14") -> tuple[s
     """Normalizes various Indian and commercial date strings to ISO YYYY-MM-DD.
 
     Flags any date outside 2000 to 2035, or after as-of date by more than a year.
+    Handles PDF-wrapped dates where a table cell wraps mid-year (e.g. '05-06-202\n6').
     """
     if date_raw is None:
         return None, []
@@ -48,6 +49,11 @@ def normalize_date(date_raw: Any, as_of_date_str: str = "2026-10-14") -> tuple[s
     s = str(date_raw).strip()
     if not s:
         return None, []
+
+    # De-wrap dates split across PDF table lines: "05-06-202\n6" -> "05-06-2026"
+    # Matches 8-digit date that got linebroken: "DD-MM-202\n6" or "DD/MM/202\n6"
+    s = re.sub(r"(\d{2}[-/]\d{2}[-/]\d{3})\s*\n\s*(\d)", r"\1\2", s)
+    s = s.replace("\n", " ").strip()
 
     # Clean ordinals like 1st, 2nd, 3rd, 4th
     s_clean = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", s, flags=re.IGNORECASE)
@@ -71,8 +77,12 @@ def normalize_date(date_raw: Any, as_of_date_str: str = "2026-10-14") -> tuple[s
     return s, ["INVALID_DATE_FORMAT"]
 
 
+
 def normalize_indian_number(num_raw: Any) -> tuple[Decimal | None, list[str]]:
-    """Normalizes Indian and commercial numbers (e.g. ₹ 1,00,000.00, 460 pcs, 18%) to Decimal."""
+    """Normalizes Indian and commercial numbers (e.g. ₹ 1,00,000.00, 460 pcs, 18%) to Decimal.
+
+    A standalone '-' means absent/null (e.g. bank statement empty cell), not an invalid number.
+    """
     if num_raw is None:
         return None, []
 
@@ -84,6 +94,10 @@ def normalize_indian_number(num_raw: Any) -> tuple[Decimal | None, list[str]]:
 
     s = str(num_raw).strip()
     if not s:
+        return None, []
+
+    # A standalone dash means "absent / not applicable" — return null silently
+    if s in ("-", "—", "–", "N/A", "n/a", "nil", "NIL"):
         return None, []
 
     # Remove currency symbols, commas, percent, units like pcs, metres, etc.
@@ -100,6 +114,7 @@ def normalize_indian_number(num_raw: Any) -> tuple[Decimal | None, list[str]]:
         return val, []
     except (InvalidOperation, ValueError):
         return None, ["INVALID_NUMBER_FORMAT"]
+
 
 
 def validate_gstin(gstin_raw: Any) -> tuple[str | None, list[str]]:

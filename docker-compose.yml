@@ -35,6 +35,7 @@ services:
       LLM_EXTRACT_MODEL: ${LLM_EXTRACT_MODEL:-openai/gpt-oss-120b}
       LLM_CLASSIFY_MODEL: ${LLM_CLASSIFY_MODEL:-openai/gpt-oss-20b}
       LLM_VISION_MODEL: ${LLM_VISION_MODEL:-llama-3.2-11b-vision-preview}
+      LLM_VISION_ENABLED: ${LLM_VISION_ENABLED:-false}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODE: ${LLM_MODE:-replay}
       LLM_MAX_CONCURRENCY: ${LLM_MAX_CONCURRENCY:-2}

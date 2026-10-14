@@ -401,18 +401,24 @@ def evaluate_synthetic_documents() -> None:
 
 
 def evaluate_scan_test_suite(synth_dir: Path, temp_dir: Path) -> None:
+    """Reports REAL OCR-only accuracy on the 5 scan variants.
+
+    Vision is disabled (LLM_VISION_ENABLED=false). No vision calls are made.
+    All values come from Tesseract OCR + regex post-processing only.
+    """
     scan_truths = load_scan_tests_ground_truth(synth_dir)
 
-    print("\n" + "=" * 108)
-    print("PART C: 5 SCAN VARIANTS EVALUATION - OCR-ONLY vs OCR + VISION FALLBACK")
-    print("=" * 108)
+    print("\n" + "=" * 96)
+    print("PART C: 5 SCAN VARIANTS - REAL OCR-ONLY ACCURACY (Vision disabled)")
+    print("NOTE: LLM_VISION_ENABLED=false. No live or cached vision calls were made.")
+    print("=" * 96)
 
-    scan_header = "{:<32} | {:<16} | {:<18} | {:<18} | {:<14}"
-    scan_row    = "{:<32} | {:<16} | {:<18} | {:<18} | {:<14}"
-    sep = "-" * 108
+    scan_header = "{:<32} | {:<18} | {:<22} | {:<10} | {:<10}"
+    scan_row    = "{:<32} | {:<18} | {:<22} | {:<10} | {:<10}"
+    sep = "-" * 96
 
     print(scan_header.format(
-        "Scan Variant", "Condition / Dist.", "OCR-Only Recall", "OCR+Vision Recall", "Vision Status"
+        "Scan Variant", "Condition", "OCR-Only Recall", "Wrong", "Silent(Auto)"
     ))
     print(sep)
 
@@ -427,7 +433,8 @@ def evaluate_scan_test_suite(synth_dir: Path, temp_dir: Path) -> None:
     CHECK_FIELDS = ["challan_no", "challan_date", "po_ref", "dispatched_qty", "accepted_qty", "received_by"]
 
     total_ocr_correct = 0
-    total_vis_correct = 0
+    total_ocr_wrong = 0
+    total_silent = 0
     total_checked = 0
 
     for rel_path, truth in scan_truths.items():
@@ -447,9 +454,8 @@ def evaluate_scan_test_suite(synth_dir: Path, temp_dir: Path) -> None:
         )
         full_text = "\n\n".join(f"--- Page {p.page_no} ---\n{p.text}" for p in page_results)
         pages_words = {p.page_no: p.words for p in page_results}
-        page_images = [temp_dir / p.image_rel_path for p in page_results]
 
-        # 1. OCR-only extraction (page_images=None)
+        # OCR-only extraction (page_images=None so no vision path)
         facts_ocr = extract_document_facts(
             kind="CHALLAN",
             full_text=full_text,
@@ -458,66 +464,55 @@ def evaluate_scan_test_suite(synth_dir: Path, temp_dir: Path) -> None:
             page_count=1,
             page_images=None,
         )
-        ocr_map = {f.field_path: (str(f.normalised_value if f.normalised_value is not None else f.raw_value).strip()) for f in facts_ocr}
+        ocr_map = {f.field_path: str(f.normalised_value if f.normalised_value is not None else f.raw_value).strip() for f in facts_ocr}
+        ocr_status = {f.field_path: f.status for f in facts_ocr}
 
-        # 2. OCR + Vision extraction
-        facts_vis = extract_document_facts(
-            kind="CHALLAN",
-            full_text=full_text,
-            pages_words=pages_words,
-            doc_hash=doc_hash,
-            page_count=1,
-            page_images=page_images,
-        )
-        vis_map = {f.field_path: (str(f.normalised_value if f.normalised_value is not None else f.raw_value).strip()) for f in facts_vis}
-        vis_statuses = {f.field_path: f.status for f in facts_vis}
-
-        # Check fields
         doc_ocr_ok = 0
-        doc_vis_ok = 0
-        n_fields = len(CHECK_FIELDS)
+        doc_wrong = 0
+        doc_silent = 0
 
         for k in CHECK_FIELDS:
             exp_val = str(truth.get(k, ""))
             if not exp_val:
                 continue
 
-            # OCR match
             val_ocr, _, _ = _match_field(k, exp_val, ocr_map, {})
             if val_ocr and _values_match(exp_val, val_ocr):
                 doc_ocr_ok += 1
-
-            # Vision match
-            val_vis, _, _ = _match_field(k, exp_val, vis_map, vis_statuses)
-            if val_vis and _values_match(exp_val, val_vis):
-                doc_vis_ok += 1
+            else:
+                doc_wrong += 1
+                # Check if wrong field is silently auto (no flag → silent error)
+                matched_fp = next((fp for fp in ocr_map if k in fp.lower()), None)
+                if matched_fp:
+                    status = ocr_status.get(matched_fp, "auto")
+                    if status == "auto":
+                        doc_silent += 1
 
         total_ocr_correct += doc_ocr_ok
-        total_vis_correct += doc_vis_ok
-        total_checked += n_fields
-
-        all_vis_in_review = all(f.status == "needs_review" for f in facts_vis)
-        status_disp = "needs_review (100%)" if all_vis_in_review else "mixed"
+        total_ocr_wrong += doc_wrong
+        total_silent += doc_silent
+        total_checked += len(CHECK_FIELDS)
 
         print(scan_row.format(
             img_path.name[:32],
             cond,
-            f"{doc_ocr_ok}/{n_fields} ({doc_ocr_ok/n_fields*100:.1f}%)",
-            f"{doc_vis_ok}/{n_fields} ({doc_vis_ok/n_fields*100:.1f}%)",
-            status_disp,
+            f"{doc_ocr_ok}/{len(CHECK_FIELDS)} ({doc_ocr_ok/len(CHECK_FIELDS)*100:.1f}%)",
+            str(doc_wrong),
+            str(doc_silent),
         ))
 
     print(sep)
     ocr_pct = (total_ocr_correct / total_checked * 100.0) if total_checked else 0.0
-    vis_pct = (total_vis_correct / total_checked * 100.0) if total_checked else 0.0
     print(scan_row.format(
-        "Overall 5 Scans Average",
+        "Overall 5 Scans",
         "5 Variants",
         f"{total_ocr_correct}/{total_checked} ({ocr_pct:.1f}%)",
-        f"{total_vis_correct}/{total_checked} ({vis_pct:.1f}%)",
-        "needs_review (100%)",
+        str(total_ocr_wrong),
+        str(total_silent),
     ))
-    print("=" * 108 + "\n")
+    silent_result = "PASS" if total_silent == 0 else "FAIL"
+    print(f"\nScan silent errors: {total_silent} (target = 0) -> {silent_result}")
+    print("=" * 96 + "\n")
 
 
 if __name__ == "__main__":

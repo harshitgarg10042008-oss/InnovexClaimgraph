@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     LLM_EXTRACT_MODEL: str = "openai/gpt-oss-120b"
     LLM_CLASSIFY_MODEL: str = "openai/gpt-oss-20b"
     LLM_VISION_MODEL: str = "llama-3.2-11b-vision-preview"
+    LLM_VISION_ENABLED: bool = False  # disabled until a verified working vision model is confirmed
     LLM_API_KEY: str = ""
     LLM_MODE: str = "replay"  # 'live' or 'replay'
     LLM_MAX_CONCURRENCY: int = 2
@@ -52,6 +53,7 @@ def get_settings() -> Settings:
         s.LLM_CLASSIFY_MODEL = "openai/gpt-oss-20b"
     if not s.LLM_VISION_MODEL:
         s.LLM_VISION_MODEL = "llama-3.2-11b-vision-preview"
+    # Note: LLM_VISION_ENABLED defaults False; set to true only with a verified Groq vision model
     if not s.LLM_PROVIDER:
         s.LLM_PROVIDER = "groq"
     if not s.LLM_BASE_URL:
