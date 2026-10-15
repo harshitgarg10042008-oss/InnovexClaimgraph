@@ -21,7 +21,7 @@ class Fact(Base):
     __tablename__ = "facts"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('auto', 'needs_review', 'confirmed', 'edited')",
+            "status IN ('auto', 'needs_review', 'confirmed', 'edited', 'not_present')",
             name="ck_facts_status",
         ),
     )
@@ -38,9 +38,11 @@ class Fact(Base):
     page_no: Mapped[int] = mapped_column(Integer, nullable=False)
     field: Mapped[str] = mapped_column(String(100), nullable=False)
     value_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    original_value_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     bbox: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="auto", nullable=False)
+    review_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     confirmed_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

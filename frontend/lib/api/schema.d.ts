@@ -28,10 +28,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Cases */
+        /**
+         * List Cases
+         * @description List all cases with document and review counts.
+         */
         get: operations["list_cases_cases_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Case
+         * @description Create a new case with supplier and buyer parties.
+         */
+        post: operations["create_case_cases_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -45,8 +52,51 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Case */
+        /**
+         * Get Case
+         * @description Get a case by ID.
+         */
         get: operations["get_case_cases__id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{id}/review-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Review Summary
+         * @description Get review summary for a case.
+         */
+        get: operations["get_review_summary_cases__id__review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{id}/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Audit Log
+         * @description Get audit log for a case, newest first with cursor pagination.
+         */
+        get: operations["get_audit_log_cases__id__audit_log_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -179,6 +229,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/facts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Fact
+         * @description Update a fact: confirm, edit, mark_not_present, or reopen.
+         */
+        patch: operations["update_fact_facts__id__patch"];
+        trace?: never;
+    };
+    "/documents/{id}/facts/confirm-auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Confirm Auto Facts
+         * @description Bulk-confirm only facts with status='auto' for a document.
+         */
+        post: operations["bulk_confirm_auto_facts_documents__id__facts_confirm_auto_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/{id}": {
         parameters: {
             query?: never;
@@ -275,6 +365,18 @@ export interface components {
             /** Files */
             files: string[];
         };
+        /** BulkConfirmResponse */
+        BulkConfirmResponse: {
+            /** Confirmed Count */
+            confirmed_count: number;
+        };
+        /** CaseCreate */
+        CaseCreate: {
+            /** Title */
+            title: string;
+            supplier: components["schemas"]["PartyCreate"];
+            buyer: components["schemas"]["PartyCreate"];
+        };
         /** CaseRead */
         CaseRead: {
             /**
@@ -308,6 +410,16 @@ export interface components {
             updated_at: string;
             supplier?: components["schemas"]["PartyRead"] | null;
             buyer?: components["schemas"]["PartyRead"] | null;
+            /**
+             * Documents Count
+             * @default 0
+             */
+            documents_count: number;
+            /**
+             * Needs Review Count
+             * @default 0
+             */
+            needs_review_count: number;
         };
         /** DocumentResponse */
         DocumentResponse: {
@@ -373,13 +485,17 @@ export interface components {
             /** Field */
             field: string;
             /** Value Json */
-            value_json: Record<string, never>;
+            value_json?: Record<string, never> | null;
+            /** Original Value Json */
+            original_value_json?: Record<string, never> | null;
             /** Bbox */
             bbox?: number[] | null;
             /** Confidence */
             confidence?: string | null;
             /** Status */
             status: string;
+            /** Review Note */
+            review_note?: string | null;
             /** Extractor Version */
             extractor_version?: string | null;
             /** Confirmed By */
@@ -391,6 +507,21 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Label */
+            label?: string | null;
+            /** Group */
+            group?: string | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** FactUpdateRequest */
+        FactUpdateRequest: {
+            /** Action */
+            action: string;
+            /** Value */
+            value?: Record<string, never> | null;
+            /** Note */
+            note?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -509,6 +640,23 @@ export interface components {
              */
             words: components["schemas"]["WordBoxSchema"][];
         };
+        /** PartyCreate */
+        PartyCreate: {
+            /** Name */
+            name: string;
+            /** Gstin */
+            gstin?: string | null;
+            /** Pan */
+            pan?: string | null;
+            /** Udyam No */
+            udyam_no?: string | null;
+            /** Udyam Reg Date */
+            udyam_reg_date?: string | null;
+            /** Enterprise Type */
+            enterprise_type?: string | null;
+            /** Activity */
+            activity?: string | null;
+        };
         /** PartyRead */
         PartyRead: {
             /**
@@ -621,6 +769,23 @@ export interface components {
              */
             created_at: string;
         };
+        /** ReviewSummary */
+        ReviewSummary: {
+            /** Status Counts */
+            status_counts: {
+                [key: string]: number;
+            };
+            /** Document Status Counts */
+            document_status_counts: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Required Fields Needing Review */
+            required_fields_needing_review: number;
+            /** Ready For Linking */
+            ready_for_linking: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -688,6 +853,39 @@ export interface operations {
             };
         };
     };
+    create_case_cases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_case_cases__id__get: {
         parameters: {
             query?: never;
@@ -706,6 +904,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_summary_cases__id__review_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_audit_log_cases__id__audit_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -914,7 +1177,7 @@ export interface operations {
     get_case_facts_cases__id__facts_get: {
         parameters: {
             query?: {
-                /** @description Filter by status (auto, needs_review, confirmed, edited) */
+                /** @description Filter by status (auto, needs_review, confirmed, edited, not_present) */
                 status?: string | null;
                 /** @description Filter by document id */
                 document_id?: string | null;
@@ -934,6 +1197,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FactResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_fact_facts__id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_confirm_auto_facts_documents__id__facts_confirm_auto_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkConfirmResponse"];
                 };
             };
             /** @description Validation Error */

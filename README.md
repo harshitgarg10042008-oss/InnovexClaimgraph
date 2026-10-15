@@ -104,3 +104,34 @@ To regenerate API TypeScript definitions from the running backend:
 ```bash
 npm run gen:api
 ```
+
+---
+
+## Review API (M4a)
+
+The review workflow API allows users to confirm, edit, or mark facts as not present. All review actions are audited.
+
+### Key Endpoints
+
+- `PATCH /facts/{id}` - Update a fact (confirm, edit, mark_not_present, reopen)
+- `POST /documents/{id}/facts/confirm-auto` - Bulk-confirm only auto facts
+- `GET /cases/{id}/review-summary` - Get review status and counts
+- `GET /cases/{id}/audit-log` - Get audit trail (newest first)
+- `POST /cases` - Create a new case with supplier and buyer parties
+- `GET /cases` - List cases with document and review counts
+
+### Fact Statuses
+
+- `auto` - Extracted with high confidence
+- `needs_review` - Requires human review
+- `confirmed` - Manually confirmed
+- `edited` - Manually edited (original value preserved)
+- `not_present` - Marked as not present on the document
+
+### Audit Trail
+
+Every fact update writes an audit log entry with:
+- Actor (from `X-Reviewer` header, default "Reviewer")
+- Action performed
+- Before/after JSON state
+- Timestamp
