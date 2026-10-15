@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "ClaimGraph",
   description: "Evidence compiler for MSME payment claims",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
