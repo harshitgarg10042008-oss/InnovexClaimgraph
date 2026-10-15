@@ -113,8 +113,10 @@
     "delivered_qty": 460.0,
     "billed_qty": 500.0,
     "billed_value": 483800.0,
+    "delivered_value": 445096.0,
     "paid_total": 200000.0,
-    "outstanding_principal": 245096.0
+    "outstanding_on_delivered_goods": 245096.0,
+    "outstanding_on_full_invoice": 283800.0
   },
   "expected_rules_status": "provisional_pending_CA_review",
   "expected_rules": {

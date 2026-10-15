@@ -27,6 +27,7 @@ class FactResponse(BaseModel):
     label: str | None = None
     group: str | None = None
     reason: str | None = None
+    validation_warnings: list[str] | None = None
 
 
 class FactUpdateRequest(BaseModel):

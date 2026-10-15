@@ -189,6 +189,9 @@ def update_fact(
         # Re-run validation
         norm_val, flags = _validate_field_value(fact.field, request.value)
         validation_warnings = flags
+        if hasattr(norm_val, "is_finite"):
+            norm_val = float(norm_val)
+        fact.value_json = {"value": norm_val}
 
     elif request.action == "mark_not_present":
         fact.value_json = None
@@ -231,8 +234,7 @@ def update_fact(
     response.reason = _get_review_reason(fact)
 
     # Add validation warnings to response if any
-    if validation_warnings:
-        response.model_extra = {"validation_warnings": validation_warnings}
+    response.validation_warnings = validation_warnings
 
     return response
 

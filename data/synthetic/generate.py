@@ -642,8 +642,10 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
             "delivered_qty": 460.0,
             "billed_qty": 500.0,
             "billed_value": 483800.00,
+            "delivered_value": 445096.00,
             "paid_total": 200000.00,
-            "outstanding_principal": 245096.00,
+            "outstanding_on_delivered_goods": 245096.00,
+            "outstanding_on_full_invoice": 283800.00,
         },
         "expected_rules_status": "provisional_pending_CA_review",
         "expected_rules": {
@@ -683,6 +685,16 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
         "severity": "warn",
         "message": "40 units promised on backorder by 10-05-2026; delivery proof pending",
     })
+    email_json["expected_ledger"] = {
+        "ordered_qty": 500.0,
+        "delivered_qty": 460.0,
+        "billed_qty": 500.0,
+        "billed_value": 483800.00,
+        "delivered_value": 445096.00,
+        "paid_total": 200000.00,
+        "outstanding_on_delivered_goods": 245096.00,
+        "outstanding_on_full_invoice": 283800.00,
+    }
     email_json["notes"] = "Email confirms 40 units on backorder but NOT yet delivered; claimable principal remains on 460 delivered units: 2,45,096.00."
     with open(case_dir / "expected_after_email.json", "w", encoding="utf-8") as f:
         json.dump(email_json, f, indent=2)
@@ -702,7 +714,9 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
         if f["code"] not in ("QTY_MISMATCH", "BACKORDER_PENDING")
     ]
     deliv_json["expected_ledger"]["delivered_qty"] = 500.0
-    deliv_json["expected_ledger"]["outstanding_principal"] = 283800.00
+    deliv_json["expected_ledger"]["delivered_value"] = 483800.00
+    deliv_json["expected_ledger"]["outstanding_on_delivered_goods"] = 283800.00
+    deliv_json["expected_ledger"]["outstanding_on_full_invoice"] = 283800.00
     deliv_json["expected_rules_status"] = "provisional_pending_CA_review"
     deliv_json["expected_rules"] = {
         "eligibility_status": "eligible",
@@ -1501,7 +1515,15 @@ def build_case_d():
                 "challan_no": "CH-881",
                 "delivery_date": "2026-05-12",
                 "received_by": "K. S. Verma Gate 2",
-                "lines": [{"item_key": "BOLT-M12-50", "qty": 980.0}],
+                "rejection_reason": "thread-damaged",
+                "lines": [{
+                    "item_key": "BOLT-M12-50",
+                    "qty": 980.0,
+                    "dispatched_qty": 1000.0,
+                    "accepted_qty": 980.0,
+                    "rejected_qty": 20.0,
+                    "rejection_reason": "thread-damaged",
+                }],
             }
         ],
         "invoices": [
@@ -1532,13 +1554,22 @@ def build_case_d():
                 "severity": "warn",
                 "message": "Billed 1000 pcs but challan CH-881 evidences delivery of 980 pcs (shortfall of 20 pcs)",
             }
+            ,
+            {
+                "code": "GOODS_REJECTED",
+                "severity": "warn",
+                "message": "20 pcs rejected as thread-damaged on challan CH-881",
+            }
         ],
         "expected_ledger": {
             "ordered_qty": 1000.0,
             "delivered_qty": 980.0,
             "billed_qty": 1000.0,
             "billed_value": 16520.00,
+            "accepted_value": 16189.60,
             "paid_total": 10000.00,
+            "outstanding_on_accepted_goods": 6189.60,
+            "outstanding_on_full_invoice": 6520.00,
             "outstanding_principal": 6189.60,
         },
         "expected_rules_status": "provisional_pending_CA_review",

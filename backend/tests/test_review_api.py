@@ -1,6 +1,7 @@
 """Tests for M4a Review API endpoints."""
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+from urllib.parse import quote
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,7 +12,6 @@ from app.models.case import Case
 from app.models.document import Document
 from app.models.fact import Fact
 from app.models.party import Party
-from app.schemas.case import CaseCreate
 
 client = TestClient(app)
 
@@ -161,7 +161,7 @@ class TestFactUpdate:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "edited"
-        assert data["value_json"]["value"] == "500"
+        assert data["value_json"]["value"] == 500.0
         assert data["original_value_json"]["value"] == "460"
         assert data["confirmed_by"] == "TestUser"
 
@@ -170,7 +170,7 @@ class TestFactUpdate:
         assert audit is not None
         assert audit.action == "edit"
         assert audit.before_json["value_json"]["value"] == "460"
-        assert audit.after_json["value_json"]["value"] == "500"
+        assert audit.after_json["value_json"]["value"] == 500.0
 
     def test_mark_not_present(self, db_session, test_case):
         case, doc, facts = test_case
@@ -285,23 +285,41 @@ class TestReviewSummary:
 
 
 class TestAuditLog:
-    def test_audit_log_endpoint_exists(self, db_session, test_case):
+    def test_audit_log_newest_first_and_actions(self, db_session, test_case):
         case, doc, facts = test_case
-
+        now = datetime.now(UTC)
+        rows = [
+            AuditLog(case_id=case.id, actor="A", action="confirm", target="one", at=now - timedelta(minutes=2)),
+            AuditLog(case_id=case.id, actor="B", action="edit", target="two", at=now - timedelta(minutes=1)),
+            AuditLog(case_id=case.id, actor="C", action="bulk_confirm", target="three", at=now),
+        ]
+        db_session.add_all(rows)
+        db_session.commit()
         response = client.get(f"/cases/{case.id}/audit-log")
-
         assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
+        assert [row["target"] for row in response.json()] == ["three", "two", "one"]
 
-    def test_audit_log_limit_param(self, db_session, test_case):
+    def test_audit_log_limit_cursor_and_case_isolation(self, db_session, test_case):
         case, doc, facts = test_case
-
-        response = client.get(f"/cases/{case.id}/audit-log?limit=10")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
+        other = Case(title="Other", supplier_id=case.supplier_id, buyer_id=case.buyer_id, status="draft")
+        db_session.add(other)
+        db_session.flush()
+        now = datetime.now(UTC)
+        rows = [
+            AuditLog(case_id=case.id, actor="A", action="confirm", target="one", at=now - timedelta(minutes=3)),
+            AuditLog(case_id=case.id, actor="B", action="edit", target="two", at=now - timedelta(minutes=2)),
+            AuditLog(case_id=case.id, actor="C", action="reopen", target="three", at=now - timedelta(minutes=1)),
+            AuditLog(case_id=other.id, actor="X", action="confirm", target="other", at=now),
+        ]
+        db_session.add_all(rows)
+        db_session.commit()
+        first = client.get(f"/cases/{case.id}/audit-log?limit=2").json()
+        assert [row["target"] for row in first] == ["three", "two"]
+        second = client.get(
+            f"/cases/{case.id}/audit-log?limit=2&cursor={quote(first[-1]['at'])}"
+        ).json()
+        assert [row["target"] for row in second] == ["one"]
+        assert not {row["target"] for row in first + second} & {"other"}
 
 
 class TestCaseCreate:
