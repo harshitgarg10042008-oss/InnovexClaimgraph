@@ -114,11 +114,10 @@
     "delivered_qty": 500.0,
     "billed_qty": 500.0,
     "billed_value": 483800.0,
-    "delivered_value": 483800.0,
     "paid_total": 200000.0,
-    "outstanding_on_delivered_goods": 283800.0,
-    "outstanding_on_full_invoice": 283800.0
+    "outstanding_principal": 283800.0
   },
+  "expected_rules_status": "provisional_pending_CA_review",
   "expected_rules": {
     "eligibility_status": "eligible",
     "acceptance_date": "2026-04-20",
@@ -141,6 +140,5 @@
     ],
     "is_potentially_time_barred": false
   },
-  "notes": "All 500 units delivered and evidenced (CH-118: 460 + CH-131: 40). Delivered value equals billed value: 500 x 820 x 1.18 = 483800.00. Paid: 198000 + 2000 TDS = 200000. outstanding_on_delivered_goods = outstanding_on_full_invoice = 483800 - 200000 = 283800.00. Rules use outstanding_on_delivered_goods.",
-  "expected_rules_status": "provisional_pending_CA_review"
+  "notes": "All 500 units delivered and evidenced. Outstanding principal recomputed on full invoice: 4,83,800.00 - 2,00,000.00 = 2,83,800.00."
 }

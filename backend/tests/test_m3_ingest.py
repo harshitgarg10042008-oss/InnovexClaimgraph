@@ -431,3 +431,46 @@ def test_m3_digital_accuracy_above_85_pct(tmp_path):
         f"Digital PDF accuracy {accuracy:.1%} ({total_correct}/{total_checked}) "
         f"is below the 85 % M3 threshold"
     )
+
+
+def test_stamp_fallback_needs_review_on_unmatched_layout(tmp_path):
+    """
+    Test that challan with non-standard stamp layout (e.g., "Received by X on Y")
+    falls back to needs_review status for stamp fields rather than auto-confirming
+    with wrong regex match.
+    """
+    from app.ingest.classify import classify_document
+    from app.ingest.extract import extract_document_facts
+    from app.ingest.read import read_document_pages
+
+    synth = get_synthetic_dir()
+    doc_file = synth / "case_a/addons/03_challan_ch132_variant.pdf"
+
+    if not doc_file.exists():
+        pytest.skip("Stamp variant document not generated yet")
+
+    pages = read_document_pages(doc_file, "stamp_variant", tmp_path)
+    full_text = "\n\n".join(f"--- Page {p.page_no} ---\n{p.text}" for p in pages)
+    class_res = classify_document(full_text)
+    pages_words = {p.page_no: p.words for p in pages}
+
+    facts = extract_document_facts(
+        kind=class_res.kind,
+        full_text=full_text,
+        pages_words=pages_words,
+        page_count=len(pages),
+    )
+
+    # Find stamp fields
+    stamp_text_fact = next((f for f in facts if f.field_path == "stamp_text"), None)
+    stamp_date_fact = next((f for f in facts if f.field_path == "stamp_date"), None)
+
+    # With non-standard layout, these should be needs_review, not auto with wrong values
+    if stamp_text_fact:
+        assert stamp_text_fact.status == "needs_review", (
+            f"Non-standard stamp layout should be needs_review, got {stamp_text_fact.status}"
+        )
+    if stamp_date_fact:
+        assert stamp_date_fact.status == "needs_review", (
+            f"Non-standard stamp date should be needs_review, got {stamp_date_fact.status}"
+        )

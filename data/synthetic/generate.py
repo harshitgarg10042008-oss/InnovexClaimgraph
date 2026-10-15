@@ -528,6 +528,36 @@ We have verified delivery of 460 pcs against PO MM/PO/2291. Please update status
         "received_by": "R. Kulkarni",
     })
 
+    # ADDONS 3: Challan CH-132 (variant with different stamp layout - for stamp fallback test)
+    # Stamp layout: "Received by <name> on <date>" (different from standard "DATE: | SIGN:")
+    story = [
+        make_header("SHARMA AUTO COMPONENTS", "Delhi Works: Mayapuri Phase II<br/>Ph: +91-11-28114500", "DELIVERY CHALLAN", "CH-132", "15-05-2026"),
+        HRFlowable(width="100%", thickness=1, color=colors.HexColor("#16282B"), spaceAfter=10),
+        make_party_box("Consignee / Buyer", buyer_info, "Consignor / Supplier", supplier_info),
+        Spacer(1, 12),
+        Paragraph("<b>PO Reference:</b> MM/PO/2291 dated 02-04-2026<br/><b>Delivery Note:</b> Additional supply (replacement)<br/><b>Vehicle No:</b> DL-1MA-2299", BODY_STYLE),
+        Spacer(1, 8),
+        make_items_table(
+            ["Item", "Description", "HSN", "Ordered Qty", "Supplied Qty", "Unit"],
+            [["1", "Brake bracket BB-210 (replacement units)", "87082900", "500", "10", "pcs"]],
+            [0.5 * inch, 3.0 * inch, 1.0 * inch, 1.0 * inch, 1.0 * inch, 0.5 * inch],
+        ),
+        Spacer(1, 30),
+        make_stamp_box("Received by S. Patil on 15-05-2026", "#1E6B57"),
+    ]
+    create_pdf(addons_dir / "03_challan_ch132_variant.pdf", story)
+    write_truth_file(addons_dir / "03_challan_ch132_variant.pdf", {
+        "kind": "CHALLAN",
+        "challan_no": "CH-132",
+        "challan_date": "2026-05-15",
+        "challan_date_printed": "15-05-2026",
+        "po_ref": "MM/PO/2291",
+        "dispatched_qty": "10",
+        "accepted_qty": "10",
+        "rejected_qty": "0",
+        "received_by": "S. Patil",
+    })
+
     # JSON 1: expected_base.json
     base_json = {
         "case_id": "case_a",

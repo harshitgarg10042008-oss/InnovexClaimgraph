@@ -1,5 +1,8 @@
 # LLM Architecture & Model Notes (ClaimGraph M3)
 
+## Important Note on Stamp Regex
+The challan stamp regex fallback in `app/ingest/extract.py` specifically targets the synthetic document layout pattern: `DATE: DD-MM-YYYY | SIGN: Name`. Real-world challans may use different stamp formats (e.g., "Received by <name> on <date>"), which will not match this regex and will correctly be flagged as `needs_review` rather than auto-confirmed with incorrect values.
+
 ## 1. Provider & Protocol
 - **Provider:** Groq
 - **Base URL:** `https://api.groq.com/openai/v1`

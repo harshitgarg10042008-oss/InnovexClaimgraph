@@ -113,11 +113,10 @@
     "delivered_qty": 460.0,
     "billed_qty": 500.0,
     "billed_value": 483800.0,
-    "delivered_value": 445096.0,
     "paid_total": 200000.0,
-    "outstanding_on_delivered_goods": 245096.0,
-    "outstanding_on_full_invoice": 283800.0
+    "outstanding_principal": 245096.0
   },
+  "expected_rules_status": "provisional_pending_CA_review",
   "expected_rules": {
     "eligibility_status": "eligible",
     "acceptance_date": "2026-04-20",
@@ -140,6 +139,5 @@
     ],
     "is_potentially_time_barred": false
   },
-  "notes": "Email (25-04-2026) confirms 40 units on backorder, NOT yet delivered. Claimable principal remains on 460 delivered units: outstanding_on_delivered_goods = 445096 - 200000 = 245096.00. Outstanding on full invoice: 483800 - 200000 = 283800.00. Rules will use outstanding_on_delivered_goods.",
-  "expected_rules_status": "provisional_pending_CA_review"
+  "notes": "Email confirms 40 units on backorder but NOT yet delivered; claimable principal remains on 460 delivered units: 2,45,096.00."
 }

@@ -101,11 +101,10 @@
     "delivered_qty": 460.0,
     "billed_qty": 500.0,
     "billed_value": 483800.0,
-    "delivered_value": 445096.0,
     "paid_total": 200000.0,
-    "outstanding_on_delivered_goods": 245096.0,
-    "outstanding_on_full_invoice": 283800.0
+    "outstanding_principal": 245096.0
   },
+  "expected_rules_status": "provisional_pending_CA_review",
   "expected_rules": {
     "eligibility_status": "eligible",
     "acceptance_date": "2026-04-20",
@@ -128,6 +127,5 @@
     ],
     "is_potentially_time_barred": false
   },
-  "notes": "Base scenario: 460 of 500 units delivered (CH-118). Invoice bills 500 pcs. Delivered taxable value: 460 x 820 = 377200.00; incl. 18% GST = 445096.00. Paid: 198000 cash + 2000 TDS = 200000. outstanding_on_delivered_goods = 445096 - 200000 = 245096.00 (rules use this as claimable principal). outstanding_on_full_invoice = 483800 - 200000 = 283800.00.",
-  "expected_rules_status": "provisional_pending_CA_review"
+  "notes": "Base scenario: 460 of 500 units delivered; claimable delivered value is 4,45,096.00. Paid 1,98,000 + 2,000 TDS = 2,00,000. Outstanding principal = 2,45,096.00."
 }

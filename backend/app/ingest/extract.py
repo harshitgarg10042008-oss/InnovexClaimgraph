@@ -225,6 +225,7 @@ def extract_document_facts(
     # The PDF text layer contains "DATE: DD-MM-YYYY | SIGN: Name" — always prefer this over null.
     if kind == "CHALLAN" and not used_vision:
         _apply_challan_stamp_fallback(full_text, pages_words, ocr_avg_conf, facts)
+        _apply_challan_quantity_fallback(full_text, pages_words, ocr_avg_conf, facts)
 
     # Deterministic fallback for bank statement transaction dates split across PDF table lines.
     if kind == "BANK_STATEMENT" and not used_vision:
@@ -606,6 +607,78 @@ def _apply_challan_stamp_fallback(
             stamp_date_fact.status = "auto"
             stamp_date_fact.validation_flags = []
             stamp_date_fact.extractor_version = f"{PROMPT_VERSION}:regex_stamp_fallback"
+
+
+def _apply_challan_quantity_fallback(
+    full_text: str,
+    pages_words: dict[int, list[WordBox]],
+    ocr_avg_conf: float,
+    facts: list[ExtractedFactItem],
+) -> None:
+    """Deterministic regex fallback: extracts quantities from 'Supplied Qty: X' and 'RECEIVED (X PCS)' patterns.
+
+    Only fills dispatched_qty and accepted_qty when the LLM returned null for those fields.
+    Source of truth is the PDF text, not any LLM output.
+    """
+    # Pattern 1: Find quantity in table row - ordered qty followed by supplied qty followed by unit
+    # E.g., "500\n40\npcs" or "500 40 pcs"
+    supplied_pat = _re.compile(r"\d{2,}\s+[\s\r\n]*?(\d+)[\s\r\n]+(?:pcs|units?)", _re.IGNORECASE | _re.MULTILINE)
+    # Pattern 2: RECEIVED (40 PCS) - may have line breaks
+    received_pat = _re.compile(r"RECEIVED\s*\(\s*(\d+)\s*(?:PCS\s*\)?)", _re.IGNORECASE | _re.MULTILINE)
+
+    supplied_m = supplied_pat.search(full_text)
+    received_m = received_pat.search(full_text)
+
+    dispatched_qty_fact = next((f for f in facts if f.field_path == "lines[0].dispatched_qty"), None)
+    accepted_qty_fact = next((f for f in facts if f.field_path == "lines[0].accepted_qty"), None)
+
+    if supplied_m and (dispatched_qty_fact is None or dispatched_qty_fact.raw_value is None):
+        raw_qty = supplied_m.group(1).strip()
+        loc = locate_source_text(raw_qty, pages_words)
+        if dispatched_qty_fact is None:
+            facts.append(ExtractedFactItem(
+                field_path="lines[0].dispatched_qty",
+                raw_value=raw_qty,
+                normalised_value=raw_qty,
+                source_text=supplied_m.group(0).strip(),
+                page_no=loc.page_no,
+                bbox=loc.bbox,
+                confidence=Decimal("0.95"),
+                status="auto",
+                extractor_version=f"{PROMPT_VERSION}:regex_quantity_fallback",
+            ))
+        else:
+            dispatched_qty_fact.raw_value = raw_qty
+            dispatched_qty_fact.normalised_value = raw_qty
+            dispatched_qty_fact.source_text = supplied_m.group(0).strip()
+            dispatched_qty_fact.confidence = Decimal("0.95")
+            dispatched_qty_fact.status = "auto"
+            dispatched_qty_fact.validation_flags = []
+            dispatched_qty_fact.extractor_version = f"{PROMPT_VERSION}:regex_quantity_fallback"
+
+    if received_m and (accepted_qty_fact is None or accepted_qty_fact.raw_value is None):
+        raw_qty = received_m.group(1).strip()
+        loc = locate_source_text(raw_qty, pages_words)
+        if accepted_qty_fact is None:
+            facts.append(ExtractedFactItem(
+                field_path="lines[0].accepted_qty",
+                raw_value=raw_qty,
+                normalised_value=raw_qty,
+                source_text=received_m.group(0).strip(),
+                page_no=loc.page_no,
+                bbox=loc.bbox,
+                confidence=Decimal("0.95"),
+                status="auto",
+                extractor_version=f"{PROMPT_VERSION}:regex_quantity_fallback",
+            ))
+        else:
+            accepted_qty_fact.raw_value = raw_qty
+            accepted_qty_fact.normalised_value = raw_qty
+            accepted_qty_fact.source_text = received_m.group(0).strip()
+            accepted_qty_fact.confidence = Decimal("0.95")
+            accepted_qty_fact.status = "auto"
+            accepted_qty_fact.validation_flags = []
+            accepted_qty_fact.extractor_version = f"{PROMPT_VERSION}:regex_quantity_fallback"
 
 
 def _apply_bank_date_dewrap_fallback(
