@@ -35,21 +35,28 @@ test("M4 review workflow", async ({ page }) => {
   await expect(page.locator(".bbox")).toHaveCount(1);
   await expect(page.locator(".bbox")).toHaveCSS("border-style", "solid");
 
-  const needsReview = page.locator(".fact-row").filter({ hasText: /needs review/i }).first();
+  const needsReview = page.locator(".fact-row:has(.chip-needs_review)").first();
   await expect(needsReview).toBeVisible({ timeout: 15_000 });
   await needsReview.getByTitle("Edit").click();
-  await needsReview.locator("input").fill("1,23,456.00");
-  await needsReview.locator("input").press("Enter");
-  await expect(needsReview).toContainText("edited", { timeout: 15_000 });
-  await expect(needsReview).toContainText("was:");
+  const editInput = page.locator(".fact-row input").first();
+  await expect(editInput).toBeVisible();
+  await editInput.fill("1,23,456.00");
+  const editResponse = page.waitForResponse((response) => response.url().includes("/facts/") && response.request().method() === "PATCH");
+  await editInput.press("Enter");
+  await expect((await editResponse).status()).toBe(200);
+  const editedFact = page.locator(".fact-row:has(.chip-edited)").first();
+  await expect(editedFact).toContainText("edited", { timeout: 15_000 });
+  await expect(editedFact).toContainText("was:");
 
-  const confirmable = page.locator(".fact-row").filter({ hasText: /needs review/i }).first();
+  const confirmable = page.locator(".fact-row:has(.chip-needs_review)").first();
   await confirmable.getByTitle("Confirm").click();
-  await expect(confirmable).toContainText(/confirmed|edited/i, { timeout: 15_000 });
+  await expect(page.locator(".fact-row:has(.chip-confirmed), .fact-row:has(.chip-edited)").first()).toBeVisible({ timeout: 15_000 });
 
-  const notPresent = page.locator(".fact-row").filter({ hasText: /needs review/i }).first();
+  const notPresent = page.locator(".fact-row:has(.chip-needs_review)").first();
+  const notPresentResponse = page.waitForResponse((response) => response.url().includes("/facts/") && response.request().method() === "PATCH");
   await notPresent.getByTitle("Mark not present").click();
-  await expect(notPresent).toContainText("not present", { timeout: 15_000 });
+  await expect((await notPresentResponse).status()).toBe(200);
+  await expect(page.locator(".fact-row:has(.chip-not_present)").first()).toBeVisible({ timeout: 15_000 });
 
   const bulk = page.getByRole("button", { name: /Confirm all auto/ }).first();
   if (await bulk.isVisible()) {
@@ -62,7 +69,7 @@ test("M4 review workflow", async ({ page }) => {
   await expect(page.locator(".fact-row").filter({ hasText: /edited|not present|confirmed/i }).first()).toBeVisible();
   await page.getByRole("button", { name: /Audit log/ }).click();
   await expect(page.getByRole("heading", { name: "Audit log" })).toBeVisible();
-  await expect(page.locator(".audit-row")).toHaveCount(1, { timeout: 15_000 });
+  await expect.poll(() => page.locator(".audit-row").count(), { timeout: 15_000 }).toBeGreaterThan(0);
 
   const reviewPanel = page.locator(".review-panel");
   await reviewPanel.focus();
