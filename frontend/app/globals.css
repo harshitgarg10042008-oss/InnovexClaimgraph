@@ -84,6 +84,9 @@ h2 { font-size: 1rem; }
 .status-details div { display: grid; gap: 4px; }
 .status-details dt { color: var(--color-slate); font-size: .7rem; text-transform: uppercase; }
 .status-details dd { margin: 0; font-family: var(--font-mono); font-size: .82rem; }
+.workspace-empty { border: 1px dashed var(--color-rule); display: grid; gap: 5px; margin: 14px 0; padding: 14px; }
+.workspace-empty span { color: var(--color-slate); font-size: .76rem; line-height: 1.4; }
+.image-error { align-items: center; color: var(--color-slate); display: flex; flex-direction: column; gap: 8px; justify-content: center; min-height: 260px; padding: 20px; text-align: center; }
 .status-verified { color: var(--color-verified); }.status-attention { color: var(--color-attention); }.status-conflict { color: var(--color-conflict); }
 .empty-state { align-items: center; background: var(--color-surface); border: 1px dashed var(--color-rule); color: var(--color-slate); display: flex; flex-direction: column; gap: 12px; justify-content: center; min-height: 260px; padding: 32px; text-align: center; }
 .empty-state h2, .empty-state p { margin: 0; }.alert { border: 1px solid; margin-bottom: 20px; padding: 12px 14px; font-size: .85rem; }.alert-error { border-color: #e4b5ae; color: var(--color-conflict); background: #fff8f6; }
