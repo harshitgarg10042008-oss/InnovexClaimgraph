@@ -14,9 +14,9 @@
   --radius-control: 4px;
   --radius-panel: 8px;
 
-  --font-serif: var(--font-source-serif-4);
-  --font-sans: var(--font-public-sans);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-serif: "Source Serif 4", Georgia, serif;
+  --font-sans: "Public Sans", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
 }
 
 :root {
