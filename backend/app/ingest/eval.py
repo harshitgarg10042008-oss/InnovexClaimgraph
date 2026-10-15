@@ -141,7 +141,7 @@ def _match_field(
         for fp, fv in facts_map.items():
             if "communications" in fp.lower() and fp.lower().endswith(".kind"):
                 return fv, facts_status.get(fp, "auto"), fp
-        return None, "auto", ""
+        return None, "needs_review", ""
 
     if lower_key == "message_date":
         for fp, fv in facts_map.items():
@@ -168,10 +168,13 @@ def _match_field(
 
     # 2. Otherwise return first candidate with a meaningful value
     for fv, status, fp in candidates:
-        if fv and fv not in ("-", "None", ""):
+        if fv and fv not in ("-", "None", "", "(missing)"):
             return fv, status, fp
 
-    return candidates[0]
+    value, status, path = candidates[0]
+    if not value or str(value).strip() in ("-", "None", "", "(missing)"):
+        status = "needs_review"
+    return value, status, path
 
 
 # ---------------------------------------------------------------------------
@@ -286,6 +289,10 @@ def evaluate_synthetic_documents() -> None:
             doc_checked += 1
 
             matched_val, matched_status, matched_path = _match_field(exp_k, exp_v, facts_map, facts_status)
+            if matched_val is None or str(matched_val).strip() in (
+                "", "-", "—", "–", "None", "null", "n/a", "nil", "(missing)"
+            ):
+                matched_status = "needs_review"
 
             if matched_status == "needs_review":
                 doc_review += 1

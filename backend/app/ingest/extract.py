@@ -270,7 +270,7 @@ def extract_document_facts(
             )
         else:
             for ef in existing:
-                if ef.raw_value is None or str(ef.raw_value).strip() in ("", "None", "null", "-", "—", "–", "N/A", "nil"):
+                if ef.raw_value is None or str(ef.raw_value).strip() in ("", "None", "null", "-", "—", "–", "N/A", "nil", "(missing)"):
                     ef.raw_value = None
                     ef.normalised_value = None
                     ef.status = "needs_review"
@@ -282,7 +282,7 @@ def extract_document_facts(
     # (absent optional fields are normal; do not pollute the review queue)
     facts = [
         f for f in facts
-        if (f.raw_value is not None and str(f.raw_value).strip() not in ("", "None", "null", "-", "—", "–", "N/A", "nil"))
+        if (f.raw_value is not None and str(f.raw_value).strip() not in ("", "None", "null", "-", "—", "–", "N/A", "nil", "(missing)"))
         or _is_required(f.field_path)
     ]
 
@@ -303,7 +303,10 @@ def _traverse_and_build_facts(
         src_text = data.source_text
 
         # Standalone dash or empty indicator means absent / null cell
-        if raw_val is not None and str(raw_val).strip() in ("-", "—", "–", "N/A", "n/a", "nil", "NIL", "None", "null", ""):
+        if raw_val is not None and str(raw_val).strip() in (
+            "-", "—", "–", "N/A", "n/a", "nil", "NIL", "None", "null", "",
+            "(missing)",
+        ):
             raw_val = None
             src_text = None
 
@@ -345,7 +348,7 @@ def _traverse_and_build_facts(
             final_conf = Decimal(str(round(max(0.0, min(1.0, base_conf)), 4)))
 
             if raw_val is None:
-                status = "auto"
+                status = "needs_review"
                 bbox = None
             elif final_conf < Decimal("0.85") or val_flags or not loc.found:
                 status = "needs_review"
