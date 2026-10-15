@@ -23,3 +23,28 @@ export function formatDate(date: string | Date | number): string {
     year: "numeric",
   }).format(d);
 }
+
+export function formatQuantity(value: number): string {
+  return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 3 }).format(
+    value,
+  );
+}
+
+export function displayFactValue(
+  value: Record<string, unknown> | null | undefined,
+  field: string,
+): string {
+  if (!value) return "Not present";
+  const raw = (value as Record<string, unknown>).value;
+  if (raw === null || raw === undefined || raw === "") return "Not present";
+  if (typeof raw === "number") {
+    return /amount|total|rate|price/i.test(field)
+      ? formatINR(raw)
+      : formatQuantity(raw);
+  }
+  if (/date/i.test(field) && typeof raw === "string") {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return formatDate(parsed);
+  }
+  return String(raw);
+}

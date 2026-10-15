@@ -205,7 +205,11 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
-        head?: never;
+        /**
+         * Get Document Page Image
+         * @description Serves the rendered 150 DPI page image as PNG.
+         */
+        head: operations["get_document_page_image_documents__id__pages__page_no__image_head"];
         patch?: never;
         trace?: never;
     };
@@ -513,6 +517,8 @@ export interface components {
             group?: string | null;
             /** Reason */
             reason?: string | null;
+            /** Validation Warnings */
+            validation_warnings?: string[] | null;
         };
         /** FactUpdateRequest */
         FactUpdateRequest: {
@@ -1143,6 +1149,38 @@ export interface operations {
         };
     };
     get_document_page_image_documents__id__pages__page_no__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_document_page_image_documents__id__pages__page_no__image_head: {
         parameters: {
             query?: never;
             header?: never;

@@ -12,12 +12,14 @@ export async function apiClient<T>(
       ? endpoint
       : `${API_BASE_URL.replace(/\/$/, "")}${normalizedEndpoint}`;
 
+  const headers = new Headers(options?.headers);
+  if (!(options?.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
