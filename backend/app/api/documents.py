@@ -216,6 +216,7 @@ def get_document_page(
     )
 
 
+@router.head("/documents/{id}/pages/{page_no}/image")
 @router.get("/documents/{id}/pages/{page_no}/image")
 def get_document_page_image(
     id: uuid.UUID,
