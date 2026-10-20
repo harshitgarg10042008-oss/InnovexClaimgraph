@@ -349,12 +349,14 @@ def get_case_ledger(case_id: uuid.UUID, db: Session) -> dict[str, Any]:
         }
 
     res_json = last_run.result_json
-    summary = res_json.get("summary", {})
+    summary = res_json.get("summary") if isinstance(res_json, dict) else None
     return {
         "case_id": str(case_id),
         "stale": stale,
         "run_at": last_run.run_at.isoformat(),
         "summary": summary,
+        "ledger_status": summary.get("ledger_status", "final") if isinstance(summary, dict) else "final",
+        "provisional_reason": summary.get("provisional_reason") if isinstance(summary, dict) else None,
     }
 
 

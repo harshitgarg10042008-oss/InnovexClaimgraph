@@ -53,6 +53,8 @@ class LedgerResponse(BaseModel):
     stale: bool
     run_at: str | None = None
     summary: dict[str, Any] | None = None
+    ledger_status: str | None = None
+    provisional_reason: str | None = None
 
 
 class FindingResponseItem(BaseModel):

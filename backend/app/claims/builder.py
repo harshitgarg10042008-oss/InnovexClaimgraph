@@ -32,6 +32,8 @@ from app.models.transaction import (
     PurchaseOrder,
 )
 
+NAMESPACE_CLAIMGRAPH = uuid.UUID("c1a1394a-7000-4000-8000-000000000001")
+
 
 @dataclass
 class Blocker:
@@ -183,6 +185,22 @@ def check_linking_blockers(case_id: uuid.UUID, db: Session) -> list[Blocker]:
                 # Already captured above if in needs_review/auto
                 pass
 
+        # Check if challan document is a scan without confirmed delivery facts
+        is_delivery_doc = doc.kind in ("CHALLAN", "DELIVERY") or "challan" in doc.filename.lower()
+        if is_delivery_doc:
+            has_confirmed_challan = any(
+                f.status in ("confirmed", "edited") and f.field in ("challan_no", "challan_date", "stamp_date")
+                for f in doc_facts.values()
+            )
+            if not has_confirmed_challan:
+                blockers.append(
+                    Blocker(
+                        field="challan_no",
+                        document=doc.filename,
+                        reason=f"{doc.filename} is a scan, facts not confirmed",
+                    )
+                )
+
     return blockers
 
 
@@ -247,6 +265,8 @@ def build_entities_from_facts(
     db.query(Payment).filter(Payment.case_id == case_id).delete(synchronize_session=False)
     db.query(Adjustment).filter(Adjustment.case_id == case_id).delete(synchronize_session=False)
     db.query(Communication).filter(Communication.case_id == case_id).delete(synchronize_session=False)
+    db.flush()
+    db.expire_all()
 
     built = BuiltEntities(case=case)
 
@@ -280,7 +300,9 @@ def build_entities_from_facts(
             po_fact = f_map.get("po_no") or f_map.get("po_date")
             po_fact_id = po_fact.id if po_fact else None
 
+            po_id = uuid.uuid5(NAMESPACE_CLAIMGRAPH, f"po:{doc.id}:{po_no}")
             po = PurchaseOrder(
+                id=po_id,
                 case_id=case_id,
                 po_no=po_no,
                 po_date=po_date,
@@ -326,7 +348,9 @@ def build_entities_from_facts(
             ch_fact = f_map.get("challan_no") or f_map.get("challan_date")
             ch_fact_id = ch_fact.id if ch_fact else None
 
+            del_id = uuid.uuid5(NAMESPACE_CLAIMGRAPH, f"delivery:{doc.id}:{challan_no}")
             delivery = Delivery(
+                id=del_id,
                 case_id=case_id,
                 challan_no=challan_no,
                 delivery_date=del_date,
@@ -375,7 +399,9 @@ def build_entities_from_facts(
             inv_fact = f_map.get("invoice_no") or f_map.get("invoice_date")
             inv_fact_id = inv_fact.id if inv_fact else None
 
+            inv_id = uuid.uuid5(NAMESPACE_CLAIMGRAPH, f"invoice:{doc.id}:{inv_no}")
             invoice = Invoice(
+                id=inv_id,
                 case_id=case_id,
                 invoice_no=inv_no,
                 invoice_date=inv_date,
@@ -420,7 +446,9 @@ def build_entities_from_facts(
                 trans_fact = lf.get("credit") or lf.get("utr") or lf.get("narration")
                 trans_fact_id = trans_fact.id if trans_fact else None
 
+                pay_id = uuid.uuid5(NAMESPACE_CLAIMGRAPH, f"payment:{doc.id}:{idx}:{utr or p_date}")
                 payment = Payment(
+                    id=pay_id,
                     case_id=case_id,
                     utr=utr,
                     pay_date=p_date,
@@ -442,7 +470,9 @@ def build_entities_from_facts(
                 tds_fact = f_map.get("tds_amount")
                 tds_fact_id = tds_fact.id if tds_fact else None
 
+                adj_id = uuid.uuid5(NAMESPACE_CLAIMGRAPH, f"adj:{doc.id}:tds")
                 adj = Adjustment(
+                    id=adj_id,
                     case_id=case_id,
                     kind="tds",
                     amount=tds,

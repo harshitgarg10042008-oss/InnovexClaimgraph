@@ -59,7 +59,7 @@ class FindingItem:
     explanation_template: str
     message: str
     evidence_refs: list[EvidenceRef] = field(default_factory=list)
-    needs_human_or_legal_review: bool = False
+    needs_human_or_legal_review: bool = True
     blocks_ready: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -266,16 +266,18 @@ def run_findings_detectors(
                     )
                 )
 
+
     # -------------------------------------------------------------------------
     # 5. UNCREDITED_PAYMENT
     # -------------------------------------------------------------------------
     for p in entities.payments:
+        # Check if payment occurred before invoice date or narration says ADVANCE
         earliest_inv_date = min((i.invoice_date for i in entities.invoices), default=date(2099, 1, 1))
         is_advance = p.pay_date < earliest_inv_date or "ADVANCE" in (p.bank_ref_text or "").upper()
         if is_advance:
             p_facts = [str(p.fact_id)] if p.fact_id else []
             if not p_facts:
-                pf = db.query(Fact).filter(Fact.case_id == case_id, Fact.field.in_(["credit_amount", "transaction_date", "narration"])).all()
+                pf = db.query(Fact).filter(Fact.case_id == case_id, Fact.field.in_(["amount", "credit", "credit_amount", "date"])).all()
                 p_facts = [str(f.id) for f in pf]
             results.append(
                 FindingItem(
@@ -284,10 +286,11 @@ def run_findings_detectors(
                     title="Uncredited Advance Payment Received",
                     computed_numbers={
                         "advance_amount": str(p.amount),
+                        "advance_formatted": format_inr_val(p.amount),
                         "pay_date": str(p.pay_date),
                     },
-                    explanation_template="Advance payment of Rs {advance_amount} received on {pay_date} not credited against invoice face (Legal Checklist Item 14)",
-                    message=f"Advance payment of Rs {format_inr_val(p.amount)} received on {p.pay_date.strftime('%d-%m-%Y')} not credited against invoice face",
+                    explanation_template="Advance payment of Rs {advance_formatted} received on {pay_date} not credited against invoice face (Legal Checklist Item 14)",
+                    message=f"Advance payment of Rs {format_inr_val(p.amount)} received on {p.pay_date.strftime('%d-%m-%Y') if hasattr(p.pay_date, 'strftime') else p.pay_date} not credited against invoice face (Legal Checklist Item 14)",
                     evidence_refs=make_refs(p_facts),
                     needs_human_or_legal_review=True,
                     blocks_ready=False,
@@ -358,6 +361,36 @@ def run_findings_detectors(
                 explanation_template=tmpl,
                 message=msg,
                 evidence_refs=make_refs(pay_facts),
+                needs_human_or_legal_review=True,
+                blocks_ready=False,
+            )
+        )
+
+    # -------------------------------------------------------------------------
+    # 6b. OVERPAYMENT_VS_DELIVERED
+    # -------------------------------------------------------------------------
+    if reconciliation.paid_total > reconciliation.delivered_value:
+        overpayment = reconciliation.paid_total - reconciliation.delivered_value
+        pay_facts_over = [str(p.fact_id) for p in entities.payments if p.fact_id]
+        if not pay_facts_over:
+            pf = db.query(Fact).filter(Fact.case_id == case_id, Fact.field.in_(["credit_amount", "amount"])).all()
+            pay_facts_over = [str(f.id) for f in pf]
+        results.append(
+            FindingItem(
+                code="OVERPAYMENT_VS_DELIVERED",
+                severity="attention",
+                title="Overpayment Relative to Delivered Value",
+                computed_numbers={
+                    "paid_amount": str(reconciliation.paid_total),
+                    "delivered_value": str(reconciliation.delivered_value),
+                    "overpayment_amount": str(overpayment),
+                    "paid_formatted": format_inr_val(reconciliation.paid_total),
+                    "delivered_formatted": format_inr_val(reconciliation.delivered_value),
+                    "overpayment_formatted": format_inr_val(overpayment),
+                },
+                explanation_template="Payment received of Rs {paid_formatted} exceeds delivered and accepted value of Rs {delivered_formatted} by Rs {overpayment_formatted}",
+                message=f"Payment received of Rs {format_inr_val(reconciliation.paid_total)} exceeds delivered and accepted value of Rs {format_inr_val(reconciliation.delivered_value)} by Rs {format_inr_val(overpayment)}",
+                evidence_refs=make_refs(pay_facts_over),
                 needs_human_or_legal_review=True,
                 blocks_ready=False,
             )

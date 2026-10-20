@@ -205,6 +205,8 @@ class ReconciliationSummary:
     score_result: ScoreResult | None = None
     claim_items: list[ReconciledClaimItem] = field(default_factory=list)
     allocations: list[PaymentAllocation] = field(default_factory=list)
+    ledger_status: str = "final"
+    provisional_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -224,6 +226,8 @@ class ReconciliationSummary:
             "score_blockers": self.score_result.blockers if self.score_result else [],
             "claim_items": [ci.to_dict() for ci in self.claim_items],
             "allocations": [a.to_dict() for a in self.allocations],
+            "ledger_status": self.ledger_status,
+            "provisional_reason": self.provisional_reason,
         }
 
 
@@ -275,6 +279,7 @@ def run_reconciliation(
     # exclude the later-dated duplicate from reconciliation.
     # The canonical invoice is the one with the earlier invoice_date.
     canonical_invoices = list(entities.invoices)
+    provisional_reason = None
     if len(entities.invoices) > 1:
         # Group invoices by (total, taxable) — exact duplicates
         from collections import defaultdict
@@ -286,10 +291,28 @@ def run_reconciliation(
         canonical_invoices = []
         for _key, group in inv_groups.items():
             if len(group) > 1:
-                # Keep the earliest-dated (most likely the original invoice)
-                group_sorted = sorted(group, key=lambda i: i.invoice_date)
-                canonical_invoices.append(group_sorted[0])  # canonical
-                # The rest are duplicates — DO NOT include in reconciliation
+                # Check if a human confirmed a DELIVERY->INVOICE link for one of these invoices
+                confirmed_inv_ids = {
+                    lk.to_id for lk in links
+                    if lk.from_type == "DELIVERY" and lk.to_type == "INVOICE" and lk.confirmed
+                }
+                confirmed_in_group = [inv for inv in group if inv.id in confirmed_inv_ids]
+
+                # Deterministic sort by (invoice_date, invoice_no) for order-independence
+                group_sorted = sorted(group, key=lambda i: (i.invoice_date, i.invoice_no))
+                earliest = group_sorted[0]
+                duplicate = group_sorted[1]
+
+                if confirmed_in_group:
+                    canonical = confirmed_in_group[0]
+                    canonical_invoices.append(canonical)
+                else:
+                    canonical = earliest
+                    canonical_invoices.append(canonical)
+                    provisional_reason = (
+                        f"Duplicate invoice {duplicate.invoice_no} unresolved; earliest-dated invoice {canonical.invoice_no} "
+                        f"used as an explicit assumption until a human confirms the link"
+                    )
             else:
                 canonical_invoices.extend(group)
     else:
@@ -680,7 +703,7 @@ def run_reconciliation(
 
         # Row 3: Payments
         for p, amt in allocated_pays:
-            running_bal = quantize_money(running_bal - amt)
+            running_bal = max(ZERO, quantize_money(running_bal - amt))
             p_facts = [str(p.fact_id)] if p.fact_id else []
             ledger_rows.append(
                 LedgerRow(
@@ -694,8 +717,8 @@ def run_reconciliation(
                 )
             )
 
-        out_delivered = quantize_money(c["del_val"] - (paid_total + (adj_total if tds_as_payment else ZERO)))
-        out_full = quantize_money(inv.total - (paid_total + (adj_total if tds_as_payment else ZERO)))
+        out_delivered = max(ZERO, quantize_money(c["del_val"] - (paid_total + (adj_total if tds_as_payment else ZERO))))
+        out_full = max(ZERO, quantize_money(inv.total - (paid_total + (adj_total if tds_as_payment else ZERO))))
 
         case_out_delivered += out_delivered
         case_out_full += out_full
@@ -821,6 +844,12 @@ def run_reconciliation(
         all_low_confidence_facts_reviewed=True,
     )
 
+    ledger_status = "final"
+    if provisional_reason:
+        ledger_status = "provisional"
+        assumptions.append(provisional_reason)
+        case_interest_status = "provisional"
+
     return ReconciliationSummary(
         invoiced_total=case_invoiced_total,
         delivered_value=case_delivered_val,
@@ -837,4 +866,6 @@ def run_reconciliation(
         score_result=score_res,
         claim_items=claim_items,
         allocations=allocations,
+        ledger_status=ledger_status,
+        provisional_reason=provisional_reason,
     )
