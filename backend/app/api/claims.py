@@ -101,7 +101,7 @@ def confirm_link(
             db=db,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return LinkResponse.model_validate(updated)
 
 
@@ -122,5 +122,5 @@ def reject_link(
             db=db,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return LinkResponse.model_validate(updated)

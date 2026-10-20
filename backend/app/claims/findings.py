@@ -108,7 +108,7 @@ def run_findings_detectors(
         inv = next((i for i in entities.invoices if str(i.id) == ci.invoice_id), None)
         if not inv:
             continue
-        inv_qty = sum((l.qty for l in inv.lines), ZERO)
+        inv_qty = sum((line.qty for line in inv.lines), ZERO)
         del_qty = ZERO
         # Find deliveries linked to this invoice
         for d in entities.deliveries:
@@ -217,14 +217,6 @@ def run_findings_detectors(
     # 4. DUPLICATE_INVOICE
     # -------------------------------------------------------------------------
     # Check for same invoice number or same supplier/buyer/amount/delivery
-    seen_invoices: dict[str, Invoice] = {}
-    del_invoice_count: dict[str, list[Invoice]] = {}
-
-    for inv in entities.invoices:
-        # By delivery challan ref or linked delivery
-        for d in entities.deliveries:
-            del_invoice_count.setdefault(d.challan_no, []).append(inv)
-
     if len(entities.invoices) > 1:
         # Check if invoice numbers are duplicate or re-billing variant
         inv_0 = entities.invoices[0]
@@ -362,7 +354,7 @@ def run_findings_detectors(
         results.append(
             FindingItem(
                 code="UNCONFIRMED_LINKS",
-                severity="warn" if all(l.status == "suggested" for l in unconfirmed) else "blocker",
+                severity="warn" if all(link.status == "suggested" for link in unconfirmed) else "blocker",
                 title="Unconfirmed Document Links Pending",
                 computed_numbers={"count": len(unconfirmed)},
                 explanation_template="{count} document links require human review before dossier can be locked",

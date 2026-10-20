@@ -19,23 +19,28 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.claims.builder import BuiltEntities
-from app.models.reconciliation import Link
+from app.models.fact import Fact
+from app.models.reconciliation import Adjustment, Link
 from app.models.rule import RateTable as DbRateTable
-from app.models.transaction import Delivery, Invoice, Payment, PurchaseOrder
+from app.models.transaction import Delivery, Payment, PurchaseOrder
 from app.rules.engine import evaluate_claim
 from app.rules.pack_loader import get_active_pack
 from app.rules.score import compute_case_score
 from app.rules.types import (
     ClaimItem as RuleClaimItem,
+)
+from app.rules.types import (
     ClaimResult,
     EligibilityStatus,
     PartyFacts,
-    Payment as RulePayment,
     PaymentKind,
     RateRow,
     RateTable,
     ScoreInput,
     ScoreResult,
+)
+from app.rules.types import (
+    Payment as RulePayment,
 )
 
 TWO_DP = Decimal("0.01")
@@ -225,7 +230,36 @@ def run_reconciliation(
         and lk.status not in ("suggested", "conflict", "rejected")
     ]
 
-    # Map deliveries to invoices
+    # 1b. Duplicate invoice deduplication (Case B pattern):
+    # If two invoices have the same total+taxable amount (duplicate re-billing),
+    # exclude the later-dated duplicate from reconciliation.
+    # The canonical invoice is the one with the earlier invoice_date.
+    canonical_invoices = list(entities.invoices)
+    if len(entities.invoices) > 1:
+        # Group invoices by (total, taxable) — exact duplicates
+        from collections import defaultdict
+        inv_groups: dict[tuple, list] = defaultdict(list)
+        for inv in entities.invoices:
+            key = (inv.total, inv.taxable)
+            inv_groups[key].append(inv)
+
+        canonical_invoices = []
+        for _key, group in inv_groups.items():
+            if len(group) > 1:
+                # Keep the earliest-dated (most likely the original invoice)
+                group_sorted = sorted(group, key=lambda i: i.invoice_date)
+                canonical_invoices.append(group_sorted[0])  # canonical
+                # The rest are duplicates — DO NOT include in reconciliation
+            else:
+                canonical_invoices.extend(group)
+    else:
+        canonical_invoices = list(entities.invoices)
+
+    # Use canonical_invoices for all further reconciliation calculations
+    # but keep entities.invoices for findings detectors (which need to see duplicates)
+    invoices_for_recon = canonical_invoices
+
+
     del_to_inv: dict[uuid.UUID, list[uuid.UUID]] = {}
     inv_to_del: dict[uuid.UUID, list[uuid.UUID]] = {}
     for lk in active_links:
@@ -247,6 +281,29 @@ def run_reconciliation(
     for lk in active_links:
         if lk.from_type == "INVOICE" and lk.to_type == "PAYMENT":
             pay_to_inv.setdefault(lk.to_id, []).append(lk.from_id)
+
+    # Remap payments from excluded duplicate invoices to canonical invoices.
+    # When a duplicate invoice is excluded from reconciliation, its payments
+    # must be credited to the corresponding canonical invoice.
+    canonical_inv_ids = {inv.id for inv in invoices_for_recon}
+    duplicate_to_canonical: dict[uuid.UUID, uuid.UUID] = {}
+    if len(entities.invoices) != len(invoices_for_recon):
+        # Build mapping: excluded_inv -> canonical_inv (by total+taxable match)
+        excluded_invs = [inv for inv in entities.invoices if inv.id not in canonical_inv_ids]
+        for exc_inv in excluded_invs:
+            for can_inv in invoices_for_recon:
+                if exc_inv.total == can_inv.total and exc_inv.taxable == can_inv.taxable:
+                    duplicate_to_canonical[exc_inv.id] = can_inv.id
+                    break
+        # Remap pay_to_inv
+        for pay_id, inv_ids in list(pay_to_inv.items()):
+            remapped = []
+            for inv_id in inv_ids:
+                if inv_id in duplicate_to_canonical:
+                    remapped.append(duplicate_to_canonical[inv_id])
+                else:
+                    remapped.append(inv_id)
+            pay_to_inv[pay_id] = list(set(remapped))
 
     # Map adjustments linked to invoices
     adj_to_inv: dict[uuid.UUID, list[uuid.UUID]] = {}
@@ -270,27 +327,52 @@ def run_reconciliation(
     # -------------------------------------------------------------------------
     # 2. Compute delivery and accepted values per invoice
     # -------------------------------------------------------------------------
+    # Build PO -> Deliveries mapping for grouping backorder deliveries
+    po_del_map: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for lk in active_links:
+        if lk.from_type == "PO" and lk.to_type == "DELIVERY" and lk.to_id in del_map:
+            po_del_map.setdefault(lk.from_id, []).append(lk.to_id)
+
     invoice_del_map: dict[uuid.UUID, list[Delivery]] = {}
-    for inv in entities.invoices:
+    for inv in invoices_for_recon:
         linked_del_ids = inv_to_del.get(inv.id, [])
-        # If no explicit links, and case has single invoice and deliveries:
-        if not linked_del_ids and len(entities.invoices) == 1 and entities.deliveries:
+        # If no explicit links and only one canonical invoice, assign all deliveries:
+        if not linked_del_ids and len(invoices_for_recon) == 1 and entities.deliveries:
             invoice_del_map[inv.id] = entities.deliveries
         else:
-            invoice_del_map[inv.id] = [del_map[did] for did in linked_del_ids if did in del_map]
+            direct_dels = [del_map[did] for did in linked_del_ids if did in del_map]
+            # Also include any other deliveries that share the same PO as the
+            # directly-linked deliveries (e.g. backorder deliveries like CH-131).
+            # These are deliveries under the same PO that weren't in the original invoice
+            # but are part of the same supply chain (backorder coverage).
+            po_ids_for_inv: set[uuid.UUID] = set()
+            for d in direct_dels:
+                if d.id in po_by_del:
+                    po_ids_for_inv.add(po_by_del[d.id].id)
+            extra_del_ids: list[uuid.UUID] = []
+            for po_id in po_ids_for_inv:
+                for del_id in po_del_map.get(po_id, []):
+                    if del_id not in linked_del_ids:
+                        extra_del_ids.append(del_id)
+            # Fallback: if no links at all but single canonical invoice, use all deliveries
+            if not direct_dels and not extra_del_ids and len(invoices_for_recon) == 1:
+                invoice_del_map[inv.id] = entities.deliveries
+            else:
+                all_del_ids = list(linked_del_ids) + extra_del_ids
+                invoice_del_map[inv.id] = [del_map[did] for did in all_del_ids if did in del_map]
 
-    # Total invoiced
-    case_invoiced_total = sum((inv.total for inv in entities.invoices), ZERO)
+    # Total invoiced (only canonical/non-duplicate invoices)
+    case_invoiced_total = sum((inv.total for inv in invoices_for_recon), ZERO)
     case_delivered_val = ZERO
     case_accepted_val = ZERO
 
     # Interim struct per invoice
     inv_calc: dict[uuid.UUID, dict[str, Any]] = {}
 
-    for inv in entities.invoices:
+    for inv in invoices_for_recon:
         linked_dels = invoice_del_map.get(inv.id, [])
 
-        inv_qty = sum((l.qty for l in inv.lines), ZERO)
+        inv_qty = sum((line.qty for line in inv.lines), ZERO)
         total_disp_qty = ZERO
         total_acc_qty = ZERO
         total_rej_qty = ZERO
@@ -310,7 +392,7 @@ def run_reconciliation(
             if len(inv.lines) == 1:
                 ratio_del = min(Decimal("1.0"), total_acc_qty / inv_qty) if total_acc_qty > ZERO else (total_disp_qty / inv_qty)
                 del_val = quantize_money(inv.total * ratio_del)
-                
+
                 # Check for explicit accepted value
                 if total_acc_qty > ZERO and total_rej_qty > ZERO:
                     rate = inv.lines[0].rate
@@ -372,11 +454,11 @@ def run_reconciliation(
     # -------------------------------------------------------------------------
     # 3. Adjustments (TDS, etc.)
     # -------------------------------------------------------------------------
-    inv_adjustments: dict[uuid.UUID, list[Adjustment]] = {inv.id: [] for inv in entities.invoices}
+    inv_adjustments: dict[uuid.UUID, list[Adjustment]] = {inv.id: [] for inv in invoices_for_recon}
     for adj in entities.adjustments:
         target_inv_ids = adj_to_inv.get(adj.id, [])
-        if not target_inv_ids and len(entities.invoices) == 1:
-            target_inv_ids = [entities.invoices[0].id]
+        if not target_inv_ids and len(invoices_for_recon) == 1:
+            target_inv_ids = [invoices_for_recon[0].id]
         for inv_id in target_inv_ids:
             if inv_id in inv_adjustments:
                 inv_adjustments[inv_id].append(adj)
@@ -386,12 +468,12 @@ def run_reconciliation(
     # -------------------------------------------------------------------------
     # Sort invoices by delivery/invoice date for oldest-first allocation
     sorted_inv_ids = sorted(
-        entities.invoices,
+        invoices_for_recon,
         key=lambda i: inv_calc[i.id]["del_date"],
     )
 
     allocations: list[PaymentAllocation] = []
-    inv_payments: dict[uuid.UUID, list[tuple[Payment, Decimal]]] = {inv.id: [] for inv in entities.invoices}
+    inv_payments: dict[uuid.UUID, list[tuple[Payment, Decimal]]] = {inv.id: [] for inv in invoices_for_recon}
 
     # Track remaining unallocated payment balances
     pay_remaining: dict[uuid.UUID, Decimal] = {p.id: p.amount for p in entities.payments}
@@ -428,6 +510,10 @@ def run_reconciliation(
             continue
 
         for p in entities.payments:
+            if p.id not in pay_to_inv:
+                continue
+            if pay_to_inv[p.id] and inv.id not in pay_to_inv[p.id]:
+                continue
             avail = pay_remaining[p.id]
             if avail <= ZERO:
                 continue
@@ -478,7 +564,7 @@ def run_reconciliation(
         written_contract_present=bool(entities.purchase_orders),
     )
 
-    for inv in entities.invoices:
+    for inv in invoices_for_recon:
         c = inv_calc[inv.id]
         linked_adjs = inv_adjustments[inv.id]
         allocated_pays = inv_payments[inv.id]
@@ -506,13 +592,33 @@ def run_reconciliation(
             )
         )
 
+        # Determine TDS deduction date from remittance advice or payment
+        tds_date = None
+        for adj in linked_adjs:
+            if adj.fact_id:
+                adj_f = db.query(Fact).filter(Fact.id == adj.fact_id).first()
+                if adj_f:
+                    r_fact = db.query(Fact).filter(Fact.document_id == adj_f.document_id, Fact.field == "remittance_date").first()
+                    if r_fact and r_fact.value_json:
+                        v = r_fact.value_json
+                        val = v.get("value") or v.get("normalised") or v.get("raw")
+                        if val:
+                            try:
+                                tds_date = date.fromisoformat(str(val))
+                            except Exception:
+                                pass
+        if not tds_date and allocated_pays:
+            tds_date = allocated_pays[0][0].pay_date
+        if not tds_date:
+            tds_date = inv.invoice_date
+
         # Row 2: Adjustments (TDS, etc.)
         for adj in linked_adjs:
             running_bal = quantize_money(running_bal - adj.amount)
             adj_facts = [str(adj.fact_id)] if adj.fact_id else []
             ledger_rows.append(
                 LedgerRow(
-                    date=str(inv.invoice_date),
+                    date=str(tds_date),
                     type=adj.kind,
                     reference=adj.ref or f"{adj.kind.upper()} adjustment",
                     debit=ZERO,
@@ -547,11 +653,11 @@ def run_reconciliation(
         # Prepare rule engine claim item
         rule_payments: list[RulePayment] = []
 
-        # If TDS counts as payment, pass it to rule engine as TDS payment
+        # If TDS counts as payment, pass it to rule engine as TDS payment on remittance date
         if tds_as_payment and adj_total > ZERO:
             rule_payments.append(
                 RulePayment(
-                    pay_date=inv.invoice_date,
+                    pay_date=tds_date,
                     amount=adj_total,
                     kind=PaymentKind.tds,
                 )

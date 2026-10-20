@@ -57,6 +57,7 @@ def downgrade() -> None:
     op.drop_column('findings', 'explanation_template')
     op.drop_column('findings', 'title')
     op.execute("ALTER TABLE findings DROP CONSTRAINT IF EXISTS ck_findings_severity")
+    op.execute("UPDATE findings SET severity = 'warn' WHERE severity IN ('attention', 'conflict')")
     op.execute("ALTER TABLE findings ADD CONSTRAINT ck_findings_severity CHECK (severity IN ('info', 'warn', 'blocker'))")
 
     # Drop links columns and restore constraint
@@ -65,4 +66,5 @@ def downgrade() -> None:
     op.drop_column('links', 'reason')
     op.drop_column('links', 'status')
     op.execute("ALTER TABLE links DROP CONSTRAINT IF EXISTS ck_links_method")
+    op.execute("UPDATE links SET method = 'key' WHERE method = 'hard_key'")
     op.execute("ALTER TABLE links ADD CONSTRAINT ck_links_method CHECK (method IN ('key', 'fuzzy', 'manual'))")

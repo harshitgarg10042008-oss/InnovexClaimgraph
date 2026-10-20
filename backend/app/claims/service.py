@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.claims.builder import (
-    Blocker,
     build_entities_from_facts,
     check_linking_blockers,
 )
@@ -21,7 +20,8 @@ from app.models.audit import AuditLog
 from app.models.case import Case
 from app.models.fact import Fact
 from app.models.reconciliation import Finding, Link
-from app.models.rule import RulePack as DbRulePack, RuleRun
+from app.models.rule import RulePack as DbRulePack
+from app.models.rule import RuleRun
 from app.models.transaction import Delivery, Invoice, Payment, PurchaseOrder
 from app.rules.pack_loader import get_active_pack
 

@@ -120,8 +120,6 @@ def run_linker(
             saved_decisions[(lk.from_type, f_key, lk.to_type, t_key)] = (lk.status, lk.confirmed)
 
     # 2. Extract supporting facts map for PO references and Challan references
-    # Fact lookup for po_ref on deliveries, challan_ref on invoices
-    po_ref_by_del: dict[uuid.UUID, str] = {}
     del_facts = (
         db.query(Fact)
         .filter(Fact.case_id == case_id, Fact.field.in_(["po_ref", "challan_ref"]))
@@ -158,7 +156,7 @@ def run_linker(
         for delivery in entities.deliveries:
             # Check delivery facts for po_ref
             po_ref = ""
-            for doc_id, refs in doc_refs.items():
+            for _doc_id, refs in doc_refs.items():
                 if "po_ref" in refs:
                     po_ref = refs["po_ref"]
                     break
@@ -239,7 +237,7 @@ def run_linker(
         norm_ch = normalize_key(delivery.challan_no)
         for invoice in entities.invoices:
             challan_ref = ""
-            for doc_id, refs in doc_refs.items():
+            for _doc_id, refs in doc_refs.items():
                 if "challan_ref" in refs:
                     challan_ref = refs["challan_ref"]
                     break
@@ -271,7 +269,7 @@ def run_linker(
 
     # Conflict check: Multiple invoices claiming the same delivery challan (e.g. Case B duplicate invoice)
     del_usage_count: dict[uuid.UUID, list[Invoice]] = {}
-    for d, inv, m, s in del_to_inv_candidates:
+    for d, inv, _m, _s in del_to_inv_candidates:
         del_usage_count.setdefault(d.id, []).append(inv)
 
     for d, inv, m, s in del_to_inv_candidates:
@@ -336,12 +334,6 @@ def run_linker(
                         reason = f"Advance payment references PO {po.po_no}"
                         break
 
-            # 3. If single invoice and payment in date window
-            if not is_hard_match and len(entities.invoices) == 1:
-                # Check party name or generic credit
-                is_hard_match = True
-                reason = f"Sole invoice in case matching payment credit {payment.amount}"
-
             if is_hard_match:
                 link_results.append(
                     LinkResult(
@@ -359,8 +351,10 @@ def run_linker(
                     )
                 )
             else:
-                # Fuzzy fallback
-                if payment.amount <= invoice.total:
+                # Fuzzy fallback: check party name in narration
+                buyer_name = entities.case.buyer.name if entities.case.buyer else ""
+                score = fuzz.partial_ratio(buyer_name.lower(), narration.lower()) if buyer_name else 0.0
+                if score >= 75.0 and payment.amount <= invoice.total:
                     link_results.append(
                         LinkResult(
                             from_type="INVOICE",
@@ -371,8 +365,8 @@ def run_linker(
                             to_stable_id=get_entity_stable_id(payment),
                             method="fuzzy",
                             status="suggested",
-                            confidence=Decimal("0.7500"),
-                            reason="Fuzzy match: payment within invoice amount",
+                            confidence=Decimal(str(round(score / 100, 4))),
+                            reason=f"Fuzzy match: buyer name in narration ({score:.0f}%)",
                             evidence_fact_ids=get_fact_ids(invoice, payment),
                         )
                     )

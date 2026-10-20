@@ -124,7 +124,7 @@ REQUIRED_FIELDS_BY_KIND: dict[str, list[str]] = {
 
 def check_linking_blockers(case_id: uuid.UUID, db: Session) -> list[Blocker]:
     """Check for missing or unconfirmed facts across case documents.
-    
+
     A required fact is blocked if:
     - It is in status 'needs_review' or 'auto' (unconfirmed)
     - It is mark_not_present or missing for a required document kind
@@ -192,7 +192,7 @@ def build_entities_from_facts(
     preserve_case_status: bool = False,
 ) -> tuple[BuiltEntities | None, list[Blocker]]:
     """Build domain entities from confirmed/edited facts in a single transaction.
-    
+
     If blockers exist, does not build and returns (None, blockers).
     Preserves audit log and facts; recreates derived rows only.
     """
@@ -218,7 +218,6 @@ def build_entities_from_facts(
     )
 
     documents = db.query(Document).filter(Document.case_id == case_id).all()
-    doc_map = {d.id: d for d in documents}
 
     # Group facts by document
     facts_by_doc: dict[uuid.UUID, list[Fact]] = {d.id: [] for d in documents}
@@ -347,7 +346,7 @@ def build_entities_from_facts(
                 rej_qty = parse_decimal(extract_fact_value(lf.get("rejected_qty")), Decimal("0.0"))
                 rej_reason = str(extract_fact_value(lf.get("rejection_reason")) or "") or None
                 unit = str(extract_fact_value(lf.get("unit")) or "pcs").strip()
-                
+
                 # Main qty represents accepted qty if present, else dispatched
                 main_qty = acc_qty if acc_qty > Decimal("0") else disp_qty
 
@@ -436,7 +435,6 @@ def build_entities_from_facts(
         elif doc.kind == "REMITTANCE":
             tds = parse_decimal(f_vals.get("tds_amount"), Decimal("0.00"))
             if tds > Decimal("0"):
-                r_date = parse_date(f_vals.get("remittance_date"))
                 inv_ref = str(f_vals.get("invoice_refs") or "")
                 ref_txt = f"TDS u/s 194Q per remittance advice {doc.filename}"
                 if inv_ref:
