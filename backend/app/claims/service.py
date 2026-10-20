@@ -194,6 +194,8 @@ def run_claims_pipeline(
                 "explanation_template": f.explanation_template,
                 "computed_numbers": f.computed_numbers,
                 "needs_human_or_legal_review": f.needs_human_or_legal_review,
+                "blocks_ready": f.blocks_ready,
+                "refs": f.refs_json or [],
                 "refs_json": f.refs_json,
             }
             for f in db_findings
@@ -344,8 +346,6 @@ def get_case_ledger(case_id: uuid.UUID, db: Session) -> dict[str, Any]:
             "case_id": str(case_id),
             "stale": stale,
             "summary": None,
-            "claim_items": [],
-            "allocations": [],
         }
 
     res_json = last_run.result_json
@@ -355,8 +355,6 @@ def get_case_ledger(case_id: uuid.UUID, db: Session) -> dict[str, Any]:
         "stale": stale,
         "run_at": last_run.run_at.isoformat(),
         "summary": summary,
-        "claim_items": summary.get("claim_items", []),
-        "allocations": summary.get("allocations", []),
     }
 
 
@@ -378,6 +376,8 @@ def get_case_findings(case_id: uuid.UUID, db: Session) -> dict[str, Any]:
                 "explanation_template": f.explanation_template,
                 "computed_numbers": f.computed_numbers,
                 "needs_human_or_legal_review": f.needs_human_or_legal_review,
+                "blocks_ready": f.blocks_ready,
+                "refs": f.refs_json or [],
                 "refs_json": f.refs_json,
                 "created_at": f.created_at.isoformat() if f.created_at else None,
             }

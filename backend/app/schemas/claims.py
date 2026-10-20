@@ -53,8 +53,6 @@ class LedgerResponse(BaseModel):
     stale: bool
     run_at: str | None = None
     summary: dict[str, Any] | None = None
-    claim_items: list[dict[str, Any]] = Field(default_factory=list)
-    allocations: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class FindingResponseItem(BaseModel):

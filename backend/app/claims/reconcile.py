@@ -53,6 +53,36 @@ def quantize_money(d: Decimal | None) -> Decimal:
     return d.quantize(TWO_DP, rounding=ROUND_HALF_UP)
 
 
+def format_inr_val(val: Decimal | float | int | str) -> str:
+    """Format a number in Indian grouping: e.g. 198000 -> 1,98,000; 245096 -> 2,45,096; 483800 -> 4,83,800."""
+    try:
+        d = Decimal(str(val))
+    except Exception:
+        return str(val)
+    sign = "-" if d < 0 else ""
+    d = abs(d)
+    int_part = int(d)
+    frac = d - int_part
+    s = str(int_part)
+    if len(s) > 3:
+        last3 = s[-3:]
+        rest = s[:-3]
+        groups = []
+        while len(rest) > 2:
+            groups.append(rest[-2:])
+            rest = rest[:-2]
+        if rest:
+            groups.append(rest)
+        groups.reverse()
+        formatted_int = ",".join(groups) + "," + last3
+    else:
+        formatted_int = s
+    if frac > 0:
+        frac_str = f"{frac:.2f}"[1:]
+        return f"{sign}{formatted_int}{frac_str}"
+    return f"{sign}{formatted_int}"
+
+
 @dataclass
 class LedgerRow:
     date: str
@@ -62,9 +92,12 @@ class LedgerRow:
     credit: Decimal
     running_balance: Decimal
     source_fact_ids: list[str] = field(default_factory=list)
+    label: str | None = None
+    invoiced_total: Decimal | None = None
+    excluded_value: Decimal | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d = {
             "date": self.date,
             "type": self.type,
             "reference": self.reference,
@@ -73,6 +106,13 @@ class LedgerRow:
             "running_balance": str(self.running_balance),
             "source_fact_ids": self.source_fact_ids,
         }
+        if self.label is not None:
+            d["label"] = self.label
+        if self.invoiced_total is not None:
+            d["invoiced_total"] = str(self.invoiced_total)
+        if self.excluded_value is not None:
+            d["excluded_value"] = str(self.excluded_value)
+        return d
 
 
 @dataclass
@@ -579,7 +619,14 @@ def run_reconciliation(
         ledger_rows: list[LedgerRow] = []
         running_bal = c["claimable_p"]
 
-        # Row 1: Invoice debit
+        # Row 1: Invoice debit with computed label and excluded value
+        inv_total = inv.total
+        excluded_val = quantize_money(inv.total - c["claimable_p"])
+        if excluded_val > ZERO:
+            row_label = f"Delivered and accepted value of {inv.invoice_no} (invoice total {format_inr_val(inv_total)}; undelivered or rejected value {format_inr_val(excluded_val)} excluded)"
+        else:
+            row_label = f"Delivered and accepted value of {inv.invoice_no} (invoice total {format_inr_val(inv_total)})"
+
         ledger_rows.append(
             LedgerRow(
                 date=str(inv.invoice_date),
@@ -589,6 +636,9 @@ def run_reconciliation(
                 credit=ZERO,
                 running_balance=running_bal,
                 source_fact_ids=c["fact_ids"],
+                label=row_label,
+                invoiced_total=inv_total,
+                excluded_value=excluded_val,
             )
         )
 
