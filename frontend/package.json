@@ -10,7 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o lib/api/schema.d.ts"
+    "gen:api": "openapi-typescript http://backend:8000/openapi.json -o lib/api/schema.d.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.2",

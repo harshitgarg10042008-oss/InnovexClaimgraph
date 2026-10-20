@@ -105,6 +105,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/cases/{id}/link/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Case Pipeline
+         * @description Execute M5 build + link + reconcile + findings pipeline.
+         */
+        post: operations["run_case_pipeline_cases__id__link_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{id}/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Graph
+         * @description Retrieve nodes and edges for @xyflow/react graph visualization.
+         */
+        get: operations["get_graph_cases__id__graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{id}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ledger
+         * @description Retrieve ledger rows, claim items, allocations, and totals.
+         */
+        get: operations["get_ledger_cases__id__ledger_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{id}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Findings
+         * @description Retrieve discrepancy detector findings with stale flag.
+         */
+        get: operations["get_findings_cases__id__findings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{id}/links/{link_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Link
+         * @description Confirm a proposed link and record audit log.
+         */
+        post: operations["confirm_link_cases__id__links__link_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{id}/links/{link_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Link
+         * @description Reject a proposed link and record audit log.
+         */
+        post: operations["reject_link_cases__id__links__link_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cases/{id}/documents": {
         parameters: {
             query?: never;
@@ -364,6 +484,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BlockerItem */
+        BlockerItem: {
+            /** Field */
+            field: string;
+            /** Document */
+            document: string;
+            /** Reason */
+            reason: string;
+        };
         /** Body_upload_case_documents_cases__id__documents_post */
         Body_upload_case_documents_cases__id__documents_post: {
             /** Files */
@@ -529,6 +658,87 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** FindingResponseItem */
+        FindingResponseItem: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Severity */
+            severity: string;
+            /** Title */
+            title?: string | null;
+            /** Message */
+            message: string;
+            /** Explanation Template */
+            explanation_template?: string | null;
+            /** Computed Numbers */
+            computed_numbers?: Record<string, never> | null;
+            /**
+             * Needs Human Or Legal Review
+             * @default false
+             */
+            needs_human_or_legal_review: boolean;
+            /** Refs Json */
+            refs_json?: Record<string, never>[] | null;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** FindingsResponse */
+        FindingsResponse: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Stale */
+            stale: boolean;
+            /** Findings */
+            findings?: components["schemas"]["FindingResponseItem"][];
+        };
+        /** GraphEdge */
+        GraphEdge: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Target */
+            target: string;
+            /**
+             * Animated
+             * @default false
+             */
+            animated: boolean;
+            /** Data */
+            data: Record<string, never>;
+        };
+        /** GraphNode */
+        GraphNode: {
+            /** Id */
+            id: string;
+            /** Type */
+            type: string;
+            /** Position */
+            position: {
+                [key: string]: number;
+            };
+            /** Data */
+            data: Record<string, never>;
+        };
+        /** GraphResponse */
+        GraphResponse: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Nodes */
+            nodes: components["schemas"]["GraphNode"][];
+            /** Edges */
+            edges: components["schemas"]["GraphEdge"][];
+            /** Stale */
+            stale: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -624,6 +834,85 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** LedgerResponse */
+        LedgerResponse: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Stale */
+            stale: boolean;
+            /** Run At */
+            run_at?: string | null;
+            /** Summary */
+            summary?: Record<string, never> | null;
+            /** Claim Items */
+            claim_items?: Record<string, never>[];
+            /** Allocations */
+            allocations?: Record<string, never>[];
+        };
+        /** LinkResponse */
+        LinkResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** From Type */
+            from_type: string;
+            /**
+             * From Id
+             * Format: uuid
+             */
+            from_id: string;
+            /** To Type */
+            to_type: string;
+            /**
+             * To Id
+             * Format: uuid
+             */
+            to_id: string;
+            /** Method */
+            method: string;
+            /** Confidence */
+            confidence?: string | null;
+            /** Confirmed */
+            confirmed: boolean;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason?: string | null;
+            /** Evidence Fact Ids */
+            evidence_fact_ids?: string[] | null;
+        };
+        /** LinkRunResponse */
+        LinkRunResponse: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Status */
+            status: string;
+            /** Linking Status */
+            linking_status: string;
+            /** Stale */
+            stale: boolean;
+            /** Blockers */
+            blockers?: components["schemas"]["BlockerItem"][];
+            /** Run At */
+            run_at?: string | null;
+            /** Summary */
+            summary?: Record<string, never> | null;
+            /** Findings */
+            findings?: Record<string, never>[] | null;
         };
         /** PageDetailResponse */
         PageDetailResponse: {
@@ -975,6 +1264,203 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_case_pipeline_cases__id__link_run_post: {
+        parameters: {
+            query?: {
+                /** @description Evaluation as-of date */
+                as_of?: string;
+            };
+            header?: {
+                "X-Reviewer"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_graph_cases__id__graph_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GraphResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ledger_cases__id__ledger_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_findings_cases__id__findings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_link_cases__id__links__link_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string;
+            };
+            path: {
+                id: string;
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_link_cases__id__links__link_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Reviewer"?: string;
+            };
+            path: {
+                id: string;
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkResponse"];
                 };
             };
             /** @description Validation Error */
