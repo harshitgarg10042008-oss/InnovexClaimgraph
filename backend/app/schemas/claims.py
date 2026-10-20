@@ -66,6 +66,8 @@ class FindingResponseItem(BaseModel):
     explanation_template: str | None = None
     computed_numbers: dict[str, Any] | None = None
     needs_human_or_legal_review: bool = False
+    blocks_ready: bool = False
+    refs: list[dict[str, Any]] = Field(default_factory=list)
     refs_json: list[dict[str, Any]] | None = None
     created_at: str | None = None
 

@@ -113,7 +113,7 @@ class Finding(Base):
     __tablename__ = "findings"
     __table_args__ = (
         CheckConstraint(
-            "severity IN ('info', 'warn', 'blocker', 'attention', 'conflict')",
+            "severity IN ('info', 'attention', 'conflict')",
             name="ck_findings_severity",
         ),
     )
@@ -131,6 +131,7 @@ class Finding(Base):
     explanation_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     computed_numbers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     needs_human_or_legal_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    blocks_ready: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     refs_json: Mapped[dict | list | None] = mapped_column(JSONB, nullable=True)
     resolved_by_fact_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
