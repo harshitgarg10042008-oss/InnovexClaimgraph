@@ -24,6 +24,9 @@ class PurchaseOrder(Base):
     terms_fact_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
     )
+    fact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -63,6 +66,9 @@ class Delivery(Base):
     received_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     acceptance_fact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
+    )
+    fact_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -107,6 +113,9 @@ class Invoice(Base):
     taxable: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     gst: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    fact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

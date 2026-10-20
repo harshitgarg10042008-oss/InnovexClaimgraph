@@ -37,6 +37,9 @@ class Adjustment(Base):
     kind: Mapped[str] = mapped_column(String(50), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    fact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -76,8 +79,12 @@ class Link(Base):
     __tablename__ = "links"
     __table_args__ = (
         CheckConstraint(
-            "method IN ('key', 'fuzzy', 'manual')",
+            "method IN ('hard_key', 'key', 'fuzzy', 'manual')",
             name="ck_links_method",
+        ),
+        CheckConstraint(
+            "status IN ('auto_linked', 'suggested', 'conflict', 'confirmed', 'rejected')",
+            name="ck_links_status",
         ),
     )
 
@@ -94,6 +101,9 @@ class Link(Base):
     method: Mapped[str] = mapped_column(String(20), nullable=False)
     confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4), nullable=True)
     confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="auto_linked", nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evidence_fact_ids: Mapped[list | dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -103,7 +113,7 @@ class Finding(Base):
     __tablename__ = "findings"
     __table_args__ = (
         CheckConstraint(
-            "severity IN ('info', 'warn', 'blocker')",
+            "severity IN ('info', 'warn', 'blocker', 'attention', 'conflict')",
             name="ck_findings_severity",
         ),
     )
@@ -116,7 +126,11 @@ class Finding(Base):
     )
     code: Mapped[str] = mapped_column(String(100), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    computed_numbers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    needs_human_or_legal_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     refs_json: Mapped[dict | list | None] = mapped_column(JSONB, nullable=True)
     resolved_by_fact_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("facts.id", ondelete="SET NULL"), nullable=True
