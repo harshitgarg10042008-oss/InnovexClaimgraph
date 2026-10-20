@@ -679,6 +679,13 @@ export interface components {
              * @default false
              */
             needs_human_or_legal_review: boolean;
+            /**
+             * Blocks Ready
+             * @default false
+             */
+            blocks_ready: boolean;
+            /** Refs */
+            refs?: Record<string, never>[];
             /** Refs Json */
             refs_json?: Record<string, never>[] | null;
             /** Created At */
@@ -848,10 +855,6 @@ export interface components {
             run_at?: string | null;
             /** Summary */
             summary?: Record<string, never> | null;
-            /** Claim Items */
-            claim_items?: Record<string, never>[];
-            /** Allocations */
-            allocations?: Record<string, never>[];
         };
         /** LinkResponse */
         LinkResponse: {

@@ -37,10 +37,17 @@ def test_case_c_ineligible_udyam(db_session, create_reviewed_case):
     )
 
     # Findings
-    codes = [f["code"] for f in result.get("findings", [])]
-    assert "INELIGIBLE_SUPPLIER" in codes, (
-        f"Expected INELIGIBLE_SUPPLIER in {codes}"
+    findings_by_code = {f["code"]: f for f in result.get("findings", [])}
+    assert "INELIGIBLE_UDYAM_AFTER_PO" in findings_by_code, (
+        f"Expected INELIGIBLE_UDYAM_AFTER_PO in {list(findings_by_code.keys())}"
     )
+    f_inelig = findings_by_code["INELIGIBLE_UDYAM_AFTER_PO"]
+    assert f_inelig["severity"] == "conflict"
+    assert f_inelig["blocks_ready"] is True
+    assert f_inelig["needs_human_or_legal_review"] is True
+    assert "udyam_reg_date" in f_inelig["computed_numbers"]
+    assert "po_date" in f_inelig["computed_numbers"]
+    assert len(f_inelig["refs"]) >= 2, f"Expected at least 2 refs for udyam and po date, got {f_inelig['refs']}"
 
 
 def test_case_c_no_interest_number_in_ledger(db_session, create_reviewed_case):

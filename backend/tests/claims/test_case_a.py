@@ -43,9 +43,31 @@ def test_case_a_base_golden_numbers(db_session, create_reviewed_case):
     assert summary["due_date"] == "2026-06-04"
 
     # Findings
-    codes = [f["code"] for f in result["findings"]]
-    assert "QTY_MISMATCH" in codes
-    assert "TDS_DEDUCTION" in codes
+    findings_by_code = {f["code"]: f for f in result["findings"]}
+    assert "SHORT_DELIVERY" in findings_by_code, f"Expected SHORT_DELIVERY in {list(findings_by_code.keys())}"
+    sd = findings_by_code["SHORT_DELIVERY"]
+    assert sd["computed_numbers"]["invoiced_qty"] == "500"
+    assert sd["computed_numbers"]["delivered_qty"] == "460"
+    assert sd["computed_numbers"]["short_qty"] == "40"
+    assert Decimal(sd["computed_numbers"]["value_difference"]) == Decimal("38704.00")
+    assert sd["needs_human_or_legal_review"] is True
+    assert sd["blocks_ready"] is False
+    assert len(sd["refs"]) > 0
+
+    assert "TDS_DEDUCTION" in findings_by_code
+    tds = findings_by_code["TDS_DEDUCTION"]
+    assert tds["needs_human_or_legal_review"] is True
+    assert tds["severity"] == "info"
+    assert len(tds["refs"]) > 0
+
+    # Ledger row label on Case A
+    ledger_items = summary["claim_items"]
+    assert len(ledger_items) > 0
+    first_row = ledger_items[0]["ledger_rows"][0]
+    expected_label = "Delivered and accepted value of INV-7731 (invoice total 4,83,800; undelivered or rejected value 38,704 excluded)"
+    assert first_row.get("label") == expected_label
+    assert Decimal(first_row.get("invoiced_total")) == Decimal("483800.00")
+    assert Decimal(first_row.get("excluded_value")) == Decimal("38704.00")
 
 
 def test_case_a_with_backorder_and_ch131(db_session, create_reviewed_case):

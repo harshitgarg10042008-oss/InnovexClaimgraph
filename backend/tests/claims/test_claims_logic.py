@@ -233,3 +233,44 @@ def test_editing_fact_marks_data_stale(db_session, create_reviewed_case):
         # Now check stale
         stale = is_case_stale(case.id, db_session, last_run.run_at if last_run else None)
         assert stale is True, "Expected stale=True after re-confirming a fact post-run"
+
+
+def test_findings_schema_and_integrity(db_session, create_reviewed_case):
+    """Every finding must have:
+    - code
+    - severity in {'info', 'attention', 'conflict'} only
+    - title (plain, short)
+    - explanation_template (fixed text with numbers filled in)
+    - computed_numbers (dict of Decimal strings)
+    - non-empty refs (or link ids for UNCONFIRMED_LINKS)
+    - needs_human_or_legal_review (bool)
+    - blocks_ready (bool)
+    """
+    case, _ = create_reviewed_case(
+        "case_a",
+        files_subset=[
+            "PO_MM_PO_2291.pdf",
+            "CH_118.pdf",
+            "INV_7731.pdf",
+            "bank_statement.pdf",
+            "remittance_advice.pdf",
+            "udyam_certificate.pdf",
+        ],
+    )
+    result = run_claims_pipeline(case.id, db_session, as_of=date(2026, 10, 14))
+    findings = result.get("findings", [])
+    assert len(findings) > 0
+
+    allowed_severities = {"info", "attention", "conflict"}
+    for f in findings:
+        assert f["severity"] in allowed_severities, f"Severity {f['severity']} not allowed in {f['code']}"
+        assert f["title"] and isinstance(f["title"], str), f"Missing title in {f['code']}"
+        assert f["explanation_template"] and isinstance(f["explanation_template"], str), f"Missing explanation_template in {f['code']}"
+        assert isinstance(f["computed_numbers"], dict), f"computed_numbers not dict in {f['code']}"
+        assert isinstance(f["needs_human_or_legal_review"], bool)
+        assert isinstance(f["blocks_ready"], bool)
+        refs = f.get("refs") or f.get("refs_json") or []
+        assert len(refs) > 0, f"Finding {f['code']} has empty refs"
+        for r in refs:
+            assert "fact_id" in r or "link_id" in r, f"Invalid ref in {f['code']}: {r}"
+

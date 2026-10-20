@@ -58,5 +58,5 @@ def test_case_d_best_effort(db_session, create_reviewed_case):
 
     # Findings
     codes = [f["code"] for f in result.get("findings", [])]
-    assert "GOODS_REJECTED" in codes, f"Expected GOODS_REJECTED in {codes}"
+    assert "REJECTED_ON_DELIVERY" in codes, f"Expected REJECTED_ON_DELIVERY in {codes}"
 
