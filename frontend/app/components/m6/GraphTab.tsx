@@ -42,7 +42,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
-import { fmtDate, fmtINR, fmtNum } from "./shared";
+import { fmtDate, fmtINR } from "./shared";
 import type { GraphResponse, GraphNode, LinkResponse } from "./shared";
 import {
   BlockedPanel,

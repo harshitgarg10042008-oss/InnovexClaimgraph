@@ -324,12 +324,6 @@ export function InterestTab({
               </strong>
             </div>
             <div className="interest-stat-cell">
-              <span className="interest-stat-label">Rate</span>
-              <strong className="interest-stat-value">
-                MSMEDA 3× RBI
-              </strong>
-            </div>
-            <div className="interest-stat-cell">
               <span className="interest-stat-label">Interest total</span>
               <strong
                 className="interest-stat-value"
