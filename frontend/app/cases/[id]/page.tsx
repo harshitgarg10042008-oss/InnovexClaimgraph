@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import WorkspaceClient from "./WorkspaceClient";
-import { QueryProvider } from "../../components/QueryProvider";
+import { QueryProvider } from "@/app/components/QueryProvider";
 
 export default function CasePage() {
   return (

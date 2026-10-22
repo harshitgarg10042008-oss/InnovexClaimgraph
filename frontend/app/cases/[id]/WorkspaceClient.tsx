@@ -18,7 +18,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Check,
@@ -42,12 +42,12 @@ import {
   LinkingStatusBadge,
   RunLinkingButton,
   ErrorToast,
-} from "../../components/m6/LinkingPanel";
-import { GraphTab } from "../../components/m6/GraphTab";
-import { LedgerTab } from "../../components/m6/LedgerTab";
-import { InterestTab } from "../../components/m6/InterestTab";
-import { FindingsTab } from "../../components/m6/FindingsTab";
-import type { LinkRunResponse } from "../../components/m6/shared";
+} from "@/app/components/m6/LinkingPanel";
+import { GraphTab } from "@/app/components/m6/GraphTab";
+import { LedgerTab } from "@/app/components/m6/LedgerTab";
+import { InterestTab } from "@/app/components/m6/InterestTab";
+import { FindingsTab } from "@/app/components/m6/FindingsTab";
+import type { LinkRunResponse, LedgerResponse } from "@/app/components/m6/shared";
 
 type Case = components["schemas"]["CaseRead"];
 type Doc = components["schemas"]["DocumentResponse"];
@@ -130,20 +130,30 @@ export default function CaseWorkspace() {
   const [m6EvidenceDoc, setM6EvidenceDoc] = useState<{
     docId: string;
     page: number;
+    bbox?: number[] | null;
   } | null>(null);
+
+  /* Query ledger data for case */
+  const { data: ledgerData } = useQuery<LedgerResponse>({
+    queryKey: ["ledger", id],
+    queryFn: () => apiClient<LedgerResponse>(`/cases/${id}/ledger`),
+    enabled: Boolean(id),
+  });
 
   /* ---------------------------------------------------------------- */
   /* Derived linking state                                              */
   /* ---------------------------------------------------------------- */
-  const ledgerStatus = linkRunResult?.linking_status ?? null;
+  const displayLinkingStatus =
+    linkRunResult?.linking_status ?? ledgerData?.ledger_status ?? null;
   const isBlocked =
-    ledgerStatus === "blocked" ||
+    displayLinkingStatus === "blocked" ||
     (linkRunResult?.blockers ?? []).length > 0;
-  const isStale = linkRunResult?.stale ?? false;
-  const isProvisional = ledgerStatus === "provisional";
+  const isStale = linkRunResult?.stale ?? ledgerData?.stale ?? false;
+  const isProvisional = displayLinkingStatus === "provisional";
   const provisionalReason =
-    (linkRunResult as unknown as Record<string, unknown>)
-      ?.provisional_reason as string | undefined;
+    (linkRunResult as unknown as Record<string, unknown>)?.provisional_reason as
+      | string
+      | undefined ?? ledgerData?.provisional_reason ?? undefined;
 
   /* ---------------------------------------------------------------- */
   /* Load case data                                                     */
@@ -216,6 +226,22 @@ export default function CaseWorkspace() {
       setLinkingLoading(false);
     }
   }, [id, reviewer, qc]);
+
+  // Initial link check on workspace load to determine blockers / provisional state
+  useEffect(() => {
+    let mounted = true;
+    apiClient<LinkRunResponse>(`/cases/${id}/link/run`, {
+      method: "POST",
+      headers: { "X-Reviewer": reviewer },
+    })
+      .then((res) => {
+        if (mounted) setLinkRunResult(res);
+      })
+      .catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, [id, reviewer]);
 
   /* ---------------------------------------------------------------- */
   /* Review tab actions (unchanged from M5)                            */
@@ -509,16 +535,28 @@ export default function CaseWorkspace() {
   /* ---------------------------------------------------------------- */
   /* Open evidence from M6 tabs                                        */
   /* ---------------------------------------------------------------- */
-  const handleOpenEvidence = useCallback((docId: string, page: number) => {
-    setM6EvidenceDoc({ docId, page });
-  }, []);
+  const handleOpenEvidence = useCallback(
+    (docId: string, page: number, bbox?: number[] | null) => {
+      setM6EvidenceDoc({ docId, page, bbox: bbox ?? null });
+    },
+    [],
+  );
 
-  /* ---------------------------------------------------------------- */
-  /* Stat strip values                                                  */
-  /* ---------------------------------------------------------------- */
-  // linking_status comes from LinkRunResponse; ledger_status from LedgerResponse
-  // Both are behind separate queries — use linkRunResult for the header stat
-  const displayLinkingStatus = linkRunResult?.linking_status ?? null;
+  /* Global Escape key listener to close evidence drawer and dialogs */
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (m6EvidenceDoc) {
+          setM6EvidenceDoc(null);
+        } else if (showAudit) {
+          setShowAudit(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [m6EvidenceDoc, showAudit]);
+
   const displayLedgerStatus =
     (linkRunResult as unknown as Record<string, unknown>)?.ledger_status as
       | string
@@ -1076,6 +1114,7 @@ export default function CaseWorkspace() {
             runLinkingLoading={linkingLoading}
             onJumpToReview={handleJumpToReview}
             onOpenEvidence={handleOpenEvidence}
+            facts={facts}
           />
         </div>
       )}
@@ -1093,6 +1132,7 @@ export default function CaseWorkspace() {
             onRunLinking={() => void runLinking()}
             runLinkingLoading={linkingLoading}
             onJumpToReview={handleJumpToReview}
+            onGoToFindings={() => setActiveTab("findings")}
           />
         </div>
       )}
@@ -1134,6 +1174,7 @@ export default function CaseWorkspace() {
             <M6EvidenceView
               docId={m6EvidenceDoc.docId}
               page={m6EvidenceDoc.page}
+              bbox={m6EvidenceDoc.bbox}
               docs={docs}
             />
           </div>
@@ -1462,10 +1503,12 @@ function EvidenceDrawer({
 function M6EvidenceView({
   docId,
   page,
+  bbox,
   docs,
 }: {
   docId: string;
   page: number;
+  bbox?: number[] | null;
   docs: Doc[];
 }) {
   const [currentPage, setCurrentPage] = useState(page);
@@ -1501,11 +1544,11 @@ function M6EvidenceView({
           Next
         </button>
       </div>
-      <div className="evidence-image fit-width" style={{ marginTop: "10px" }}>
+      <div className="evidence-image fit-width" style={{ marginTop: "10px", position: "relative" }}>
         {imageError ? (
           <div className="image-error">
             <ImageIcon size={22} />
-            <p>Exact location not available. Check the page.</p>
+            <p>Page image unavailable.</p>
           </div>
         ) : (
           <Image
@@ -1517,7 +1560,23 @@ function M6EvidenceView({
             onError={() => setImageError(true)}
           />
         )}
+        {!imageError && bbox && currentPage === page && (
+          <div
+            className="bbox"
+            style={{
+              left: `${bbox[0] * 100}%`,
+              top: `${bbox[1] * 100}%`,
+              width: `${(bbox[2] - bbox[0]) * 100}%`,
+              height: `${(bbox[3] - bbox[1]) * 100}%`,
+            }}
+          />
+        )}
       </div>
+      {!bbox && (
+        <p className="muted" style={{ fontSize: "0.74rem", margin: "8px 0 0" }}>
+          Exact location not available. Check the page.
+        </p>
+      )}
     </div>
   );
 }

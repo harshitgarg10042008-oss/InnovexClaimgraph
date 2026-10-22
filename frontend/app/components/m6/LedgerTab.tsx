@@ -7,12 +7,14 @@
  * summary is Record<string,never> in the schema (untyped); we access it safely.
  *
  * Layout:
+ * - Blocked panel when blocked
  * - Stale/provisional banners
- * - Totals block: BOTH bases side by side
+ * - Totals block: BOTH bases side by side (Delivered and accepted goods vs Full invoice value)
+ * - Timing block: Due date and days overdue
  * - One section per claim_item (from summary.claim_items)
- * - Ledger rows table per claim item
+ * - Ledger rows table per claim item with full API label on first row
  * - Allocation table
- * - Assumptions list
+ * - Assumptions list with "Open legal item" tags
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +29,7 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { fmtDate, fmtINR, fmtNum } from "./shared";
 import type { LedgerResponse } from "./shared";
+import type { components } from "@/lib/api/schema";
 import {
   BlockedPanel,
   NoDataPanel,
@@ -34,27 +37,28 @@ import {
   StaleBanner,
 } from "./LinkingPanel";
 
+type Fact = components["schemas"]["FactResponse"];
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-// Safe accessor into the untyped summary object
 function s(obj: Record<string, unknown> | null | undefined, key: string): unknown {
   return obj?.[key] ?? undefined;
 }
 
 function dash(val: unknown): string {
   if (val === null || val === undefined || val === "") return "\u2013";
-  const n = typeof val === "string" ? parseFloat(val) : val as number;
-  if (typeof n === "number" && !isFinite(n)) return "\u2013";
+  const n = typeof val === "string" ? parseFloat(String(val).replace(/,/g, "")) : (val as number);
+  if (!isFinite(n as number)) return "\u2013";
   return fmtINR(n as number);
 }
 
 function numOrDash(val: unknown): string {
   if (val === null || val === undefined || val === "") return "\u2013";
-  const n = typeof val === "string" ? parseFloat(val) : val as number;
-  if (typeof n !== "number" || !isFinite(n)) return "\u2013";
-  return fmtNum(n);
+  const n = typeof val === "string" ? parseFloat(String(val).replace(/,/g, "")) : (val as number);
+  if (!isFinite(n as number)) return "\u2013";
+  return fmtNum(n as number);
 }
 
 function rowTypeIcon(type: string | undefined) {
@@ -67,13 +71,13 @@ function rowTypeIcon(type: string | undefined) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Totals block                                                         */
+/* Totals block: Both bases side by side                               */
 /* ------------------------------------------------------------------ */
 function TotalsBlock({ summary }: { summary: Record<string, unknown> }) {
-  const delivered = s(summary, "delivered_basis") as Record<string, unknown> | undefined;
-  const invoice = s(summary, "invoice_basis") as Record<string, unknown> | undefined;
-  const dueDate = s(summary, "due_date") as string | undefined;
-  const daysOverdue = s(summary, "days_overdue") as number | undefined;
+  const claimItems = (summary.claim_items as Record<string, unknown>[] | undefined) ?? [];
+  const firstItem = claimItems[0];
+  const dueDate = (s(summary, "due_date") ?? firstItem?.due_date) as string | undefined;
+  const daysOverdue = (firstItem?.days_overdue ?? s(summary, "days_overdue")) as number | undefined;
 
   return (
     <div className="ledger-totals-block">
@@ -84,27 +88,31 @@ function TotalsBlock({ summary }: { summary: Record<string, unknown> }) {
           <table className="ledger-totals-table">
             <tbody>
               <tr>
+                <td>Invoiced</td>
+                <td className="num-col">{dash(s(summary, "invoiced_total"))}</td>
+              </tr>
+              <tr>
                 <td>Delivered</td>
-                <td className="num-col">{dash(s(delivered, "delivered"))}</td>
+                <td className="num-col">{dash(s(summary, "delivered_value"))}</td>
               </tr>
               <tr>
                 <td>Accepted</td>
-                <td className="num-col">{dash(s(delivered, "accepted"))}</td>
+                <td className="num-col">{dash(s(summary, "accepted_value"))}</td>
               </tr>
               <tr>
                 <td>Paid</td>
-                <td className="num-col">{dash(s(delivered, "paid"))}</td>
+                <td className="num-col">{dash(s(summary, "paid_total"))}</td>
               </tr>
               <tr>
                 <td>Adjustments</td>
-                <td className="num-col">{dash(s(delivered, "adjustments"))}</td>
+                <td className="num-col">{dash(s(summary, "adjustments_total"))}</td>
               </tr>
               <tr className="totals-row-highlight">
                 <td>
                   <strong>Outstanding</strong>
                 </td>
                 <td className="num-col">
-                  <strong>{dash(s(delivered, "outstanding"))}</strong>
+                  <strong>{dash(s(summary, "outstanding_on_delivered_goods"))}</strong>
                 </td>
               </tr>
             </tbody>
@@ -118,26 +126,30 @@ function TotalsBlock({ summary }: { summary: Record<string, unknown> }) {
             <tbody>
               <tr>
                 <td>Invoiced</td>
-                <td className="num-col">{dash(s(invoice, "invoiced"))}</td>
+                <td className="num-col">{dash(s(summary, "invoiced_total"))}</td>
               </tr>
               <tr>
                 <td>Delivered</td>
-                <td className="num-col">{dash(s(invoice, "delivered"))}</td>
+                <td className="num-col">{dash(s(summary, "delivered_value"))}</td>
+              </tr>
+              <tr>
+                <td>Accepted</td>
+                <td className="num-col">{dash(s(summary, "accepted_value"))}</td>
               </tr>
               <tr>
                 <td>Paid</td>
-                <td className="num-col">{dash(s(invoice, "paid"))}</td>
+                <td className="num-col">{dash(s(summary, "paid_total"))}</td>
               </tr>
               <tr>
                 <td>Adjustments</td>
-                <td className="num-col">{dash(s(invoice, "adjustments"))}</td>
+                <td className="num-col">{dash(s(summary, "adjustments_total"))}</td>
               </tr>
               <tr className="totals-row-highlight">
                 <td>
                   <strong>Outstanding</strong>
                 </td>
                 <td className="num-col">
-                  <strong>{dash(s(invoice, "outstanding"))}</strong>
+                  <strong>{dash(s(summary, "outstanding_on_full_invoice"))}</strong>
                 </td>
               </tr>
             </tbody>
@@ -168,7 +180,7 @@ function TotalsBlock({ summary }: { summary: Record<string, unknown> }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Assumptions                                                          */
+/* Assumptions list with "Open legal item" tags                        */
 /* ------------------------------------------------------------------ */
 function AssumptionsList({ assumptions }: { assumptions: unknown[] }) {
   if (!assumptions || assumptions.length === 0) return null;
@@ -177,13 +189,12 @@ function AssumptionsList({ assumptions }: { assumptions: unknown[] }) {
       <h3 className="ledger-section-title">Assumptions</h3>
       <ul className="assumptions-list">
         {assumptions.map((a, i) => {
-          const obj = a as Record<string, unknown>;
-          const text = String(obj.text ?? obj.assumption ?? obj.description ?? a);
-          const legal = Boolean(obj.legal_item ?? obj.needs_legal ?? false);
+          const rawText = typeof a === "string" ? a : String((a as Record<string, unknown>).text ?? a);
+          const isLegal = /open legal item/i.test(rawText);
           return (
             <li key={i} className="assumption-item">
-              <span>{text}</span>
-              {legal && (
+              <span>{rawText}</span>
+              {isLegal && (
                 <span className="assumption-legal-tag">Open legal item</span>
               )}
             </li>
@@ -215,14 +226,18 @@ function AllocationTable({ allocations }: { allocations: unknown[] }) {
           <tbody>
             {allocations.map((a, i) => {
               const obj = a as Record<string, unknown>;
+              const payRef = String(obj.utr ?? obj.payment_id ?? obj.payment ?? "\u2013");
+              const claimRef = String(obj.claim_item_id ?? obj.claim_item ?? "\u2013");
               return (
                 <tr key={i}>
                   <td>
+                    <code className="mono-ref">{payRef}</code>
+                  </td>
+                  <td>
                     <code className="mono-ref">
-                      {String(obj.payment ?? obj.payment_ref ?? "\u2013")}
+                      {claimRef.length > 12 ? `…${claimRef.slice(-8)}` : claimRef}
                     </code>
                   </td>
-                  <td>{String(obj.claim_item ?? obj.item ?? "\u2013")}</td>
                   <td className="num-col">{dash(obj.amount)}</td>
                   <td>{String(obj.strategy ?? "\u2013")}</td>
                 </tr>
@@ -241,19 +256,28 @@ function AllocationTable({ allocations }: { allocations: unknown[] }) {
 function ClaimItemSection({
   item,
   index,
+  facts,
   onOpenEvidence,
 }: {
   item: Record<string, unknown>;
   index: number;
-  onOpenEvidence?: (docId: string, page: number) => void;
+  facts?: Fact[];
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
 }) {
-  const rows = (item.rows as unknown[] | undefined) ?? [];
-  const label = String(item.label ?? item.description ?? `Claim item ${index + 1}`);
+  const rows = (item.ledger_rows as unknown[] | undefined) ?? (item.rows as unknown[] | undefined) ?? [];
+  const invoiceNo = String(item.invoice_no ?? `Claim item ${index + 1}`);
 
   return (
     <div className="ledger-claim-section">
       <div className="ledger-claim-header">
-        <h3 className="ledger-claim-title">{label}</h3>
+        <h3 className="ledger-claim-title">
+          Invoice <code className="mono-ref">{invoiceNo}</code>
+          {item.invoice_date != null && (
+            <span style={{ fontWeight: "normal", color: "var(--color-slate)", fontSize: "0.8rem", marginLeft: "8px" }}>
+              dated {fmtDate(String(item.invoice_date))}
+            </span>
+          )}
+        </h3>
       </div>
       <div className="table-wrap">
         <table className="data-table ledger-table">
@@ -278,25 +302,32 @@ function ClaimItemSection({
             ) : (
               rows.map((r, ri) => {
                 const row = r as Record<string, unknown>;
-                const docId = String(row.source_document_id ?? row.doc_id ?? "");
-                const page = Number(row.page_no ?? 1);
                 const isFirst = ri === 0;
+                const sourceFactIds = (row.source_fact_ids as string[] | undefined) ?? [];
+
+                // Match against case facts for evidence drawer
+                const matchedFact = facts?.find((f) => sourceFactIds.includes(f.id));
+                const docId = matchedFact?.document_id ?? String(row.doc_id ?? "");
+                const pageNo = matchedFact?.page_no ?? Number(row.page_no ?? 1);
+                const bbox = matchedFact?.bbox ?? null;
+
                 return (
                   <tr key={ri}>
                     <td>{fmtDate(row.date as string | undefined)}</td>
                     <td>
                       <span className="row-type-cell">
                         {rowTypeIcon(row.type as string | undefined)}
-                        <span>
-                          {isFirst
-                            ? label
-                            : String(row.type ?? "\u2013").replace(/_/g, " ")}
-                        </span>
+                        <span>{String(row.type ?? "\u2013").replace(/_/g, " ")}</span>
                       </span>
+                      {isFirst && row.label != null && (
+                        <div style={{ fontSize: "0.75rem", color: "var(--color-slate)", marginTop: "4px", lineHeight: 1.4 }}>
+                          {String(row.label)}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <code className="mono-ref">
-                        {String(row.reference ?? row.ref ?? row.doc_ref ?? "\u2013")}
+                        {String(row.reference ?? row.ref ?? "\u2013")}
                       </code>
                     </td>
                     <td className="num-col">
@@ -313,7 +344,7 @@ function ClaimItemSection({
                         <button
                           type="button"
                           className="source-icon-btn"
-                          onClick={() => onOpenEvidence?.(docId, page)}
+                          onClick={() => onOpenEvidence?.(docId, pageNo, bbox)}
                           title="Open source evidence"
                           aria-label="Open source evidence"
                         >
@@ -321,7 +352,7 @@ function ClaimItemSection({
                         </button>
                       ) : (
                         <span className="text-slate" style={{ fontSize: "0.7rem" }}>
-                          \u2013
+                          {"\u2013"}
                         </span>
                       )}
                     </td>
@@ -350,6 +381,7 @@ export function LedgerTab({
   runLinkingLoading,
   onJumpToReview,
   onOpenEvidence,
+  facts,
 }: {
   caseId: string;
   linkRunResult: { blockers?: import("./shared").BlockerItem[] } | null;
@@ -360,7 +392,8 @@ export function LedgerTab({
   onRunLinking: () => void;
   runLinkingLoading: boolean;
   onJumpToReview?: (docName: string) => void;
-  onOpenEvidence?: (docId: string, page: number) => void;
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
+  facts?: Fact[];
 }) {
   const { data: ledger, isLoading, error } = useQuery<LedgerResponse>({
     queryKey: ["ledger", caseId],
@@ -435,33 +468,10 @@ export function LedgerTab({
               key={i}
               item={item as Record<string, unknown>}
               index={i}
+              facts={facts}
               onOpenEvidence={onOpenEvidence}
             />
           ))}
-
-          {/* Fallback: show raw summary keys if claim_items not present */}
-          {claimItems.length === 0 && (
-            <div className="ledger-raw-summary">
-              <h3 className="ledger-section-title">Summary</h3>
-              <dl className="summary-dl">
-                {Object.entries(summary).map(([k, v]) => {
-                  if (typeof v === "object") return null;
-                  return (
-                    <div key={k} className="summary-dl-row">
-                      <dt>{k.replace(/_/g, " ")}</dt>
-                      <dd className="num-col">
-                        {v !== null && v !== undefined
-                          ? /amount|total|outstanding|paid|invoiced|delivered|accepted|balance/i.test(k)
-                            ? dash(v)
-                            : String(v)
-                          : "\u2013"}
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
-            </div>
-          )}
 
           {/* Allocation table */}
           <AllocationTable allocations={allocations} />

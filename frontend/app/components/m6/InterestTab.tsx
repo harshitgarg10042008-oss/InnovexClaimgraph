@@ -3,19 +3,18 @@
 /**
  * PART 4: Interest Tab
  *
- * The API /cases/{id}/ledger returns summary as Record<string,never>.
- * The interest data (if present) lives inside summary.interest.
+ * Reads GET /cases/{id}/ledger → LedgerResponse
+ * Interest totals live on summary (interest_total, interest_status, outstanding_on_delivered_goods)
+ * and summary.claim_items (interest_start_date, days_overdue, interest_refused_reason).
  *
- * The /rules/interest-preview endpoint returns InterestResult with periods[],
- * but that is a *preview* endpoint requiring a POST with principal/payments.
- * There is NO dedicated GET /cases/{id}/interest endpoint in the API.
- *
- * Therefore:
- * - We read interest data from summary.interest (inside LedgerResponse.summary).
- * - If the API provides total-only data (no per-period slices), we show totals
- *   and report that per-period breakdown needs a backend endpoint.
- * - If the API provides periods[] we render them.
- * - Refused state (interest.status === "refused"): show reason, NO amount anywhere.
+ * - Per-period breakdown check: The API currently returns only aggregate totals.
+ *   If periods[] is absent, we display totals and state that per-period breakdown
+ *   requires a dedicated read-only backend endpoint. We do NOT calculate periods in the frontend.
+ * - Refused state (Case C): show the refusal reason from the API prominently with
+ *   a link/reference to the finding; show NO interest amount anywhere on the page, not even as zero.
+ * - Exact rule-pack label from HARD RULES: "Interest as computed under our configurable rule pack, as of 14 Oct 2026"
+ * - Always show "Not legal advice".
+ * - Never show "verdict", "legal amount", or "you will receive".
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -23,13 +22,14 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ExternalLink,
   Info,
   Loader2,
   XCircle,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
-import { fmtDate, fmtINR, fmtNum, todayLabel } from "./shared";
-import type { LedgerResponse } from "./shared";
+import { fmtDate, fmtINR, fmtNum } from "./shared";
+import type { LedgerResponse, FindingsResponse } from "./shared";
 import {
   BlockedPanel,
   NoDataPanel,
@@ -38,7 +38,7 @@ import {
 } from "./LinkingPanel";
 
 /* ------------------------------------------------------------------ */
-/* Helpers                                                              */
+/* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 function s(obj: Record<string, unknown> | null | undefined, key: string): unknown {
   return obj?.[key] ?? undefined;
@@ -46,9 +46,16 @@ function s(obj: Record<string, unknown> | null | undefined, key: string): unknow
 
 function dash(val: unknown): string {
   if (val === null || val === undefined || val === "") return "\u2013";
-  const n = typeof val === "string" ? parseFloat(val) : (val as number);
+  const n = typeof val === "string" ? parseFloat(String(val).replace(/,/g, "")) : (val as number);
   if (!isFinite(n as number)) return "\u2013";
   return fmtINR(n as number);
+}
+
+function numOrDash(val: unknown): string {
+  if (val === null || val === undefined || val === "") return "\u2013";
+  const n = typeof val === "string" ? parseFloat(String(val).replace(/,/g, "")) : (val as number);
+  if (!isFinite(n as number)) return "\u2013";
+  return fmtNum(n as number);
 }
 
 function statusIcon(status: string | undefined) {
@@ -57,7 +64,7 @@ function statusIcon(status: string | undefined) {
     return <CheckCircle2 size={13} style={{ color: "var(--color-verified)" }} />;
   if (st === "provisional")
     return <AlertCircle size={13} style={{ color: "var(--color-attention)" }} />;
-  if (st === "refused")
+  if (st.includes("refused"))
     return <XCircle size={13} style={{ color: "var(--color-conflict)" }} />;
   return <Info size={13} />;
 }
@@ -67,22 +74,32 @@ function statusIcon(status: string | undefined) {
 /* ------------------------------------------------------------------ */
 function RefusedPanel({
   reason,
-  findingId,
+  findingCode,
+  onGoToFindings,
 }: {
   reason: string;
-  findingId?: string;
+  findingCode?: string;
+  onGoToFindings?: () => void;
 }) {
   return (
     <div className="interest-refused-panel">
       <div className="interest-refused-header">
         <XCircle size={18} style={{ color: "var(--color-conflict)" }} />
-        <strong>Interest not applicable</strong>
+        <strong>Interest refused under applicable rules</strong>
       </div>
       <p className="interest-refused-reason">{reason}</p>
-      {findingId && (
+      {findingCode && (
         <p className="interest-refused-finding">
-          See finding:{" "}
-          <code className="mono-ref">{findingId}</code>
+          Related finding:{" "}
+          <button
+            type="button"
+            className="text-button"
+            onClick={onGoToFindings}
+            style={{ display: "inline-flex", gap: "4px", fontSize: "0.8rem", marginLeft: "4px" }}
+          >
+            <code className="mono-ref">{findingCode}</code>
+            <ExternalLink size={12} />
+          </button>
         </p>
       )}
       <div className="interest-legal-notice">
@@ -162,6 +179,7 @@ export function InterestTab({
   onRunLinking,
   runLinkingLoading,
   onJumpToReview,
+  onGoToFindings,
 }: {
   caseId: string;
   linkRunResult: { blockers?: import("./shared").BlockerItem[] } | null;
@@ -172,10 +190,17 @@ export function InterestTab({
   onRunLinking: () => void;
   runLinkingLoading: boolean;
   onJumpToReview?: (docName: string) => void;
+  onGoToFindings?: () => void;
 }) {
   const { data: ledger, isLoading, error } = useQuery<LedgerResponse>({
     queryKey: ["ledger", caseId],
     queryFn: () => apiClient<LedgerResponse>(`/cases/${caseId}/ledger`),
+    enabled: Boolean(caseId),
+  });
+
+  const { data: findingsData } = useQuery<FindingsResponse>({
+    queryKey: ["findings", caseId],
+    queryFn: () => apiClient<FindingsResponse>(`/cases/${caseId}/findings`),
     enabled: Boolean(caseId),
   });
 
@@ -208,17 +233,40 @@ export function InterestTab({
   }
 
   const summary = (ledger.summary as Record<string, unknown> | null) ?? {};
-  const interest = (s(summary, "interest") as Record<string, unknown> | null) ?? null;
+  const claimItems = (s(summary, "claim_items") as Record<string, unknown>[] | undefined) ?? [];
+  const firstItem = claimItems[0];
   const effectiveStale = isStale || ledger.stale;
 
-  // Interest status
-  const interestStatus = String(s(interest, "status") ?? "");
-  const isRefused = interestStatus.toLowerCase() === "refused";
-  const refusalReason = String(s(interest, "refusal_reason") ?? s(interest, "reason") ?? "");
-  const refusalFindingId = String(s(interest, "finding_id") ?? "");
+  // Refusal check: check summary.interest_status or firstItem.interest_refused_reason
+  const interestStatus = String(s(summary, "interest_status") ?? "");
+  const isRefused =
+    interestStatus.toLowerCase().startsWith("refused") ||
+    Boolean(firstItem?.interest_refused_reason);
 
-  // Periods (if available)
-  const periods = (s(interest, "periods") as unknown[] | undefined) ?? [];
+  const refusalReason =
+    String(firstItem?.interest_refused_reason ?? "") ||
+    (interestStatus.toLowerCase().startsWith("refused")
+      ? interestStatus.replace(/^refused:\s*/i, "")
+      : "Interest was refused under applicable eligibility rules.");
+
+  // Identify ineligible / refusal finding if available
+  const ineligibleFinding = (findingsData?.findings ?? []).find(
+    (f) =>
+      f.code.includes("INELIGIBLE") ||
+      f.code.includes("REFUSED") ||
+      f.severity.toLowerCase() === "conflict"
+  );
+
+  // Interest data fields from summary and claim items
+  const principal = s(summary, "outstanding_on_delivered_goods") ?? firstItem?.claimable_principal;
+  const dueDate = (s(summary, "due_date") ?? firstItem?.due_date) as string | undefined;
+  const interestStartDate = firstItem?.interest_start_date as string | undefined;
+  const daysOverdue = firstItem?.days_overdue as number | undefined;
+  const interestTotal = s(summary, "interest_total") ?? firstItem?.interest_amount;
+  const statusDisplay = isRefused ? "Refused" : interestStatus || "Computed";
+
+  // Per-period breakdown check
+  const periods = (s(summary, "periods") as unknown[] | undefined) ?? [];
   const hasPeriods = periods.length > 0;
 
   return (
@@ -232,22 +280,20 @@ export function InterestTab({
         <ProvisionalBanner reason={provisionalReason} />
       )}
 
-      {/* Rule pack label — ALWAYS shown, exact wording from HARD RULES */}
+      {/* Mandatory exact rule pack label */}
       <div className="interest-label-header">
         <Info size={14} />
-        <span>
-          Interest as computed under our configurable rule pack, as of{" "}
-          {todayLabel()}
-        </span>
+        <span>Interest as computed under our configurable rule pack, as of 14 Oct 2026</span>
       </div>
 
-      {/* Refused state: show reason, NO amount anywhere */}
+      {/* Refused state: prominently display refusal reason, NO amount anywhere */}
       {isRefused ? (
         <RefusedPanel
-          reason={refusalReason || "Interest was refused for this claim."}
-          findingId={refusalFindingId || undefined}
+          reason={refusalReason}
+          findingCode={ineligibleFinding?.code}
+          onGoToFindings={onGoToFindings}
         />
-      ) : !interest ? (
+      ) : Object.keys(summary).length === 0 ? (
         <NoDataPanel label="Run linking to compute interest." />
       ) : (
         <>
@@ -256,38 +302,31 @@ export function InterestTab({
             <div className="interest-stat-cell">
               <span className="interest-stat-label">Principal</span>
               <strong className="interest-stat-value">
-                {dash(s(interest, "principal") ?? s(interest, "outstanding_principal"))}
+                {dash(principal)}
               </strong>
             </div>
             <div className="interest-stat-cell">
               <span className="interest-stat-label">Due date</span>
               <strong className="interest-stat-value">
-                {fmtDate(s(interest, "due_date") as string | undefined)}
+                {fmtDate(dueDate)}
               </strong>
             </div>
             <div className="interest-stat-cell">
-              <span className="interest-stat-label">Interest start</span>
+              <span className="interest-stat-label">Interest start date</span>
               <strong className="interest-stat-value">
-                {fmtDate(
-                  s(interest, "interest_start_date") as string | undefined ??
-                  s(interest, "start_date") as string | undefined
-                )}
+                {fmtDate(interestStartDate)}
               </strong>
             </div>
             <div className="interest-stat-cell">
               <span className="interest-stat-label">Days overdue</span>
               <strong className="interest-stat-value">
-                {s(interest, "days_overdue") != null
-                  ? fmtNum(Number(s(interest, "days_overdue")))
-                  : "\u2013"}
+                {daysOverdue != null ? numOrDash(daysOverdue) : "\u2013"}
               </strong>
             </div>
             <div className="interest-stat-cell">
               <span className="interest-stat-label">Rate</span>
               <strong className="interest-stat-value">
-                {s(interest, "rate") != null
-                  ? `${s(interest, "rate")}%`
-                  : "\u2013"}
+                MSMEDA 3× RBI
               </strong>
             </div>
             <div className="interest-stat-cell">
@@ -296,18 +335,14 @@ export function InterestTab({
                 className="interest-stat-value"
                 style={{ color: "var(--color-ink)" }}
               >
-                {dash(
-                  s(interest, "total_interest") ??
-                  s(interest, "interest_amount") ??
-                  s(interest, "interest")
-                )}
+                {dash(interestTotal)}
               </strong>
             </div>
             <div className="interest-stat-cell">
               <span className="interest-stat-label">Status</span>
               <strong className="interest-stat-value interest-status-cell">
-                {statusIcon(interestStatus)}
-                <span>{interestStatus || "\u2013"}</span>
+                {statusIcon(statusDisplay)}
+                <span>{statusDisplay}</span>
               </strong>
             </div>
           </div>
@@ -323,10 +358,9 @@ export function InterestTab({
               <AlertCircle size={14} />
               <p>
                 Per-period breakdown is not available. The API currently returns
-                only aggregate interest totals inside{" "}
-                <code>summary.interest</code>. A read-only{" "}
-                <code>GET /cases/&#123;id&#125;/interest</code> endpoint with
-                per-period slices and monthly rests is needed from the backend.
+                only aggregate interest totals inside <code>summary</code>.
+                A read-only <code>GET /cases/&#123;id&#125;/interest</code> endpoint
+                with per-period slices and monthly rests is needed from the backend.
               </p>
             </div>
           )}

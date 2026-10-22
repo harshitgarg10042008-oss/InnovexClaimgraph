@@ -8,9 +8,10 @@
  *   explanation_template, computed_numbers, needs_human_or_legal_review,
  *   blocks_ready, refs, refs_json, created_at
  *
- * Groups by severity: conflict → attention → info
+ * Groups by severity: conflict → attention → info (icon plus word)
  * Filter chips: All | Conflict | Attention | Info | Needs legal review
  * UNCONFIRMED_LINKS card → "Go to Graph" button
+ * Header count chips + summary line (e.g. "1 conflict, 1 attention, 2 info")
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -58,7 +59,7 @@ function severityClass(sev: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Computed numbers table                                               */
+/* Computed numbers table with Indian grouping for money                */
 /* ------------------------------------------------------------------ */
 function ComputedNumbersTable({
   numbers,
@@ -76,12 +77,13 @@ function ComputedNumbersTable({
         {entries.map(([k, v]) => {
           const label = k.replace(/_/g, " ");
           const isMonetary =
-            /amount|total|outstanding|paid|invoiced|delivered|accepted|balance|interest|principal/i.test(
+            /amount|total|outstanding|paid|invoiced|delivered|accepted|balance|interest|principal|diff|deducted/i.test(
               k
             );
           let display: string;
           if (isMonetary && typeof v !== "boolean") {
-            const n = parseFloat(String(v));
+            const raw = String(v).replace(/,/g, "");
+            const n = parseFloat(raw);
             display = isFinite(n) ? fmtINR(n) : String(v);
           } else if (typeof v === "number") {
             display = fmtNum(v);
@@ -110,17 +112,17 @@ function FindingCard({
 }: {
   finding: FindingResponseItem;
   onGoToGraph?: () => void;
-  onOpenEvidence?: (docId: string, page: number) => void;
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
 }) {
   const computedNumbers =
     (finding.computed_numbers as Record<string, unknown> | null) ?? {};
   const hasNumbers = Object.keys(computedNumbers).length > 0;
 
-  // Source refs from refs or refs_json
-  const refs: Record<string, unknown>[] = Array.isArray(finding.refs)
-    ? (finding.refs as Record<string, unknown>[])
-    : Array.isArray(finding.refs_json)
-      ? (finding.refs_json as Record<string, unknown>[])
+  // Source refs from refs_json or refs
+  const refs: Record<string, unknown>[] = Array.isArray(finding.refs_json)
+    ? (finding.refs_json as Record<string, unknown>[])
+    : Array.isArray(finding.refs)
+      ? (finding.refs as Record<string, unknown>[])
       : [];
 
   const isUnconfirmedLinks = finding.code === "UNCONFIRMED_LINKS";
@@ -158,6 +160,7 @@ function FindingCard({
         <h4 className="finding-title">{finding.title}</h4>
       )}
 
+      {/* Show explanation_template as returned; fallback to message */}
       <p className="finding-message">
         {finding.explanation_template ?? finding.message}
       </p>
@@ -171,16 +174,17 @@ function FindingCard({
         {refs.length > 0 && (
           <div className="finding-refs">
             {refs.map((ref, i) => {
-              const docId = String(ref.document_id ?? ref.doc_id ?? "");
-              const page = Number(ref.page_no ?? ref.page ?? 1);
-              const hasBbox = Boolean(ref.bbox);
+              const docId = String(ref.doc_id ?? ref.document_id ?? "");
+              const page = Number(ref.page ?? ref.page_no ?? 1);
+              const bbox = (ref.bbox as number[] | null | undefined) ?? null;
+              const hasBbox = Boolean(bbox);
               if (!docId) return null;
               return (
                 <button
                   key={i}
                   type="button"
                   className="ref-button"
-                  onClick={() => onOpenEvidence?.(docId, page)}
+                  onClick={() => onOpenEvidence?.(docId, page, bbox)}
                   title={hasBbox ? "Open evidence" : "Exact location not available"}
                 >
                   <FileText size={12} />
@@ -222,7 +226,7 @@ function SeverityGroup({
   severity: string;
   findings: FindingResponseItem[];
   onGoToGraph?: () => void;
-  onOpenEvidence?: (docId: string, page: number) => void;
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
 }) {
   if (findings.length === 0) return null;
   return (
@@ -271,7 +275,7 @@ export function FindingsTab({
   runLinkingLoading: boolean;
   onJumpToReview?: (docName: string) => void;
   onGoToGraph?: () => void;
-  onOpenEvidence?: (docId: string, page: number) => void;
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
 }) {
   const [filter, setFilter] = useState<FindingsFilter>("all");
 
@@ -281,7 +285,6 @@ export function FindingsTab({
     enabled: Boolean(caseId),
   });
 
-  // All hooks must be called before any early returns (rules-of-hooks)
   const allFindings = useMemo(
     () => findingsData?.findings ?? [],
     [findingsData]
@@ -342,7 +345,6 @@ export function FindingsTab({
 
   const effectiveStale = isStale || (findingsData?.stale ?? false);
 
-  // Early returns AFTER all hooks
   if (isBlocked) {
     return (
       <div className="tab-pane-scroll">

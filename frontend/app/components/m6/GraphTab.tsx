@@ -7,7 +7,7 @@
  * - Deterministic column layout: PO | Delivery | Invoice | Payment | Adjustment
  * - Edge style by status: solid (auto_linked/confirmed), dashed (suggested), conflict colour
  * - Side panel on node/edge click with Confirm/Reject for suggested/conflict
- * - TanStack Query for data fetching; invalidates after confirm/reject
+ * - TanStack Query for data fetching; invalidates after confirm/reject and recalculates
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -56,15 +56,14 @@ import {
 /* ------------------------------------------------------------------ */
 const COLUMN_ORDER = ["po", "delivery", "invoice", "payment", "adjustment"];
 const COL_WIDTH = 220;
-const COL_GAP = 80;
-const ROW_HEIGHT = 130;
-const NODE_H = 110;
+const COL_GAP = 70;
+const ROW_HEIGHT = 135;
+const NODE_H = 115;
 
 function typeToCol(type: string): number {
   const t = type.toLowerCase();
-  // Fuzzy match
-  if (t.includes("po") || t.includes("purchase_order") || t.includes("order")) return 0;
-  if (t.includes("deliver") || t.includes("grn") || t.includes("receipt")) return 1;
+  if (t.includes("po") || t.includes("order")) return 0;
+  if (t.includes("deliver") || t.includes("challan") || t.includes("receipt") || t.includes("grn")) return 1;
   if (t.includes("invoice") || t.includes("bill")) return 2;
   if (t.includes("payment") || t.includes("pay")) return 3;
   if (t.includes("tds") || t.includes("adjust") || t.includes("advance") || t.includes("note") || t.includes("credit") || t.includes("debit")) return 4;
@@ -80,8 +79,8 @@ function computePositions(nodes: GraphNode[]): Map<string, { x: number; y: numbe
     const row = colCount[col] ?? 0;
     colCount[col] = row + 1;
     result.set(n.id, {
-      x: col * (COL_WIDTH + COL_GAP) + 20,
-      y: row * ROW_HEIGHT + 20,
+      x: col * (COL_WIDTH + COL_GAP) + 30,
+      y: row * ROW_HEIGHT + 30,
     });
   }
   return result;
@@ -105,7 +104,7 @@ function nodeStatusClass(status: string | undefined): string {
   const s = status.toLowerCase();
   if (s.includes("conflict")) return "node-status-conflict";
   if (s.includes("suggest") || s.includes("pending")) return "node-status-attention";
-  if (s.includes("confirm") || s === "auto_linked") return "node-status-verified";
+  if (s.includes("confirm") || s === "auto_linked" || s === "verified") return "node-status-verified";
   return "";
 }
 
@@ -116,12 +115,27 @@ function GraphNodeCard({
   data: Record<string, unknown>;
   selected: boolean;
 }) {
-  const typeLabel = String(data.type_label ?? data.doc_type ?? "Document");
-  const ref = String(data.reference_number ?? data.reference ?? data.ref ?? "");
-  const amount =
-    data.amount != null ? fmtINR(Number(data.amount)) : null;
-  const qty =
-    data.quantity != null ? fmtNum(Number(data.quantity)) : null;
+  const rawType = String(data.type ?? data.doc_type ?? "").toLowerCase();
+  let typeLabel = "Document";
+  if (rawType === "po" || rawType.includes("order")) typeLabel = "Purchase Order";
+  else if (rawType === "delivery" || rawType.includes("challan")) typeLabel = "Delivery Challan";
+  else if (rawType === "invoice") typeLabel = "Tax Invoice";
+  else if (rawType === "payment") typeLabel = "Payment";
+  else if (rawType === "adjustment" || rawType === "tds") typeLabel = "Adjustment";
+  else if (data.label && typeof data.label === "string") {
+    typeLabel = String(data.label).split(" ")[0];
+  }
+
+  const ref = String(data.number ?? data.reference_number ?? data.reference ?? data.ref ?? "");
+
+  let displayAmount: string | null = null;
+  if (data.amount != null) {
+    const raw = String(data.amount).replace(/,/g, "");
+    const n = parseFloat(raw);
+    displayAmount = isFinite(n) ? fmtINR(n) : String(data.amount);
+  }
+
+  const qty = data.quantity != null ? `${String(data.quantity)} units` : null;
   const date = fmtDate(data.date as string | undefined ?? data.doc_date as string | undefined);
   const status = String(data.status ?? "");
 
@@ -130,7 +144,7 @@ function GraphNodeCard({
       <div className="graph-node-type">{typeLabel}</div>
       {ref && <code className="graph-node-ref">{ref}</code>}
       <div className="graph-node-amount">
-        {amount ?? qty ?? "\u2013"}
+        {displayAmount ?? qty ?? "\u2013"}
       </div>
       <div className="graph-node-date">{date}</div>
       <div className={`graph-node-status ${nodeStatusClass(status)}`}>
@@ -151,10 +165,16 @@ const nodeTypes: NodeTypes = {
 /* Custom edge with label                                              */
 /* ------------------------------------------------------------------ */
 function edgeStyle(data: Record<string, unknown>) {
-  const status = String(data.status ?? data.link_status ?? "");
-  const s = status.toLowerCase();
-  if (s.includes("conflict")) return { stroke: "var(--color-conflict)", strokeWidth: 2 };
-  if (s.includes("suggest")) return { stroke: "var(--color-attention)", strokeWidth: 1.5, strokeDasharray: "5,4" };
+  const status = String(data.status ?? data.link_status ?? "").toLowerCase();
+  if (status.includes("conflict")) {
+    return { stroke: "var(--color-conflict)", strokeWidth: 2.5 };
+  }
+  if (status.includes("suggest")) {
+    return { stroke: "var(--color-attention)", strokeWidth: 1.5, strokeDasharray: "5,4" };
+  }
+  if (status.includes("confirm") || status === "auto_linked") {
+    return { stroke: "var(--color-slate)", strokeWidth: 1.5 };
+  }
   return { stroke: "var(--color-slate)", strokeWidth: 1.5 };
 }
 
@@ -190,15 +210,15 @@ function ClaimEdge({
   });
   const style = edgeStyle(d);
   const method = String(d.method ?? "");
-  const score = d.score != null ? `(${Number(d.score).toFixed(2)})` : "";
+  const confidence = d.confidence != null ? Number(d.confidence) : null;
+  const score = confidence != null && confidence < 1.0 ? `(${confidence.toFixed(2)})` : "";
 
   return (
     <>
       <BaseEdge
         id={id}
         path={path}
-        style={{ ...style, opacity: selected ? 1 : 0.75 }}
-        markerEnd="url(#arrowhead)"
+        style={{ ...style, opacity: selected ? 1 : 0.8 }}
       />
       {(method || score) && (
         <EdgeLabelRenderer>
@@ -237,18 +257,18 @@ function SidePanel({
   type: "node" | "edge";
   caseId: string;
   onClose: () => void;
-  onOpenEvidence?: (docId: string, page: number) => void;
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
 }) {
   const qc = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [confirmNote, setConfirmNote] = useState("");
-  const [rejectNote, setRejectNote] = useState("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [mutErr, setMutErr] = useState<string | null>(null);
 
-  const linkId = type === "edge" ? item.id : null;
+  // Link ID: strips the 'e_' prefix from edge IDs so it matches the backend UUID
+  const linkId = type === "edge" ? String(item.id).replace(/^e_/, "") : null;
   const data = (item.data as Record<string, unknown>) ?? {};
   const status = String(data.status ?? data.link_status ?? "");
   const isSuggested = status.toLowerCase().includes("suggest");
@@ -262,6 +282,12 @@ function SidePanel({
     try {
       await apiClient<LinkResponse>(`/cases/${caseId}/links/${linkId}/confirm`, {
         method: "POST",
+        headers: { "X-Reviewer": "reviewer" },
+      });
+      // Recalculate ledger so ledger_status becomes final with numbers preserved
+      await apiClient(`/cases/${caseId}/link/run`, {
+        method: "POST",
+        headers: { "X-Reviewer": "reviewer" },
       });
       await qc.invalidateQueries({ queryKey: ["graph", caseId] });
       await qc.invalidateQueries({ queryKey: ["ledger", caseId] });
@@ -282,6 +308,12 @@ function SidePanel({
     try {
       await apiClient<LinkResponse>(`/cases/${caseId}/links/${linkId}/reject`, {
         method: "POST",
+        headers: { "X-Reviewer": "reviewer" },
+      });
+      // Recalculate ledger
+      await apiClient(`/cases/${caseId}/link/run`, {
+        method: "POST",
+        headers: { "X-Reviewer": "reviewer" },
       });
       await qc.invalidateQueries({ queryKey: ["graph", caseId] });
       await qc.invalidateQueries({ queryKey: ["ledger", caseId] });
@@ -295,9 +327,11 @@ function SidePanel({
     }
   };
 
-  const refs: Record<string, unknown>[] = Array.isArray(data.refs)
-    ? (data.refs as Record<string, unknown>[])
-    : [];
+  const refs: Record<string, unknown>[] = Array.isArray(data.source_refs)
+    ? (data.source_refs as Record<string, unknown>[])
+    : Array.isArray(data.refs)
+      ? (data.refs as Record<string, unknown>[])
+      : [];
 
   return (
     <aside className="graph-side-panel">
@@ -324,11 +358,11 @@ function SidePanel({
 
       <dl className="side-panel-dl">
         {Object.entries(data).map(([k, v]) => {
-          if (k === "refs" || v === null || v === undefined || typeof v === "object") return null;
+          if (k === "refs" || k === "source_refs" || k === "source_fact_ids" || v === null || v === undefined || typeof v === "object") return null;
           return (
             <div key={k}>
               <dt>{k.replace(/_/g, " ")}</dt>
-              <dd className={k === "id" || k.endsWith("_id") ? "mono-ref" : ""}>
+              <dd className={k === "id" || k.endsWith("_id") || k === "number" ? "mono-ref" : ""}>
                 {String(v)}
               </dd>
             </div>
@@ -336,19 +370,28 @@ function SidePanel({
         })}
       </dl>
 
+      {/* Confirmed metadata if returned */}
+      {Boolean(data.confirmed_by) && (
+        <div className="side-panel-meta" style={{ fontSize: "0.76rem", color: "var(--color-slate)", padding: "8px 0" }}>
+          Confirmed by {String(data.confirmed_by)}
+          {data.confirmed_at ? ` on ${fmtDate(String(data.confirmed_at))}` : ""}
+        </div>
+      )}
+
       {refs.length > 0 && (
         <div className="side-panel-refs">
           <h3>Source references</h3>
           {refs.map((ref, i) => {
-            const docId = String(ref.document_id ?? "");
-            const page = Number(ref.page_no ?? 1);
-            const hasBbox = Boolean(ref.bbox);
+            const docId = String(ref.doc_id ?? ref.document_id ?? "");
+            const page = Number(ref.page ?? ref.page_no ?? 1);
+            const bbox = (ref.bbox as number[] | null | undefined) ?? null;
+            const hasBbox = Boolean(bbox);
             return (
               <button
                 key={i}
                 type="button"
                 className="ref-button"
-                onClick={() => onOpenEvidence?.(docId, page)}
+                onClick={() => onOpenEvidence?.(docId, page, bbox)}
               >
                 <FileText size={13} />
                 <span>
@@ -405,20 +448,9 @@ function SidePanel({
             </div>
           ) : showRejectDialog ? (
             <div className="confirm-dialog">
-              <label className="confirm-dialog-label">
-                Reason (optional)
-                <input
-                  type="text"
-                  value={rejectNote}
-                  onChange={(e) => setRejectNote(e.target.value)}
-                  placeholder="Add a one-line reason…"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") doReject();
-                    if (e.key === "Escape") setShowRejectDialog(false);
-                  }}
-                  autoFocus
-                />
-              </label>
+              <p style={{ fontSize: "0.8rem", margin: "0 0 8px", color: "var(--color-conflict)" }}>
+                Reject this proposed link?
+              </p>
               <div className="confirm-dialog-btns">
                 <button
                   type="button"
@@ -501,7 +533,7 @@ function GraphFlow({
   graphData: GraphResponse;
   caseId: string;
   filterMode: "all" | "attention";
-  onOpenEvidence?: (docId: string, page: number) => void;
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
 }) {
   const { fitView } = useReactFlow();
   const [selectedItem, setSelectedItem] = useState<{
@@ -509,7 +541,7 @@ function GraphFlow({
     type: "node" | "edge";
   } | null>(null);
 
-  // Compute positions
+  // Deterministic positions computed by type and index
   const positions = useMemo(
     () => computePositions(graphData.nodes),
     [graphData.nodes]
@@ -519,7 +551,10 @@ function GraphFlow({
   const rfNodes = useMemo<Node[]>(() => {
     const raw = graphData.nodes.map((n) => {
       const pos = positions.get(n.id) ?? { x: 0, y: 0 };
-      const data = n.data as Record<string, unknown>;
+      const data: Record<string, unknown> = {
+        ...(n.data as Record<string, unknown>),
+        type: n.type,
+      };
       const status = String(data.status ?? data.link_status ?? "");
       if (filterMode === "attention") {
         const s = status.toLowerCase();
@@ -633,7 +668,7 @@ export function GraphTab({
   onRunLinking: () => void;
   runLinkingLoading: boolean;
   onJumpToReview?: (docName: string) => void;
-  onOpenEvidence?: (docId: string, page: number) => void;
+  onOpenEvidence?: (docId: string, page: number, bbox?: number[] | null) => void;
 }) {
   const [filterMode, setFilterMode] = useState<"all" | "attention">("all");
 

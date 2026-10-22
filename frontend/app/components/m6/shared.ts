@@ -24,18 +24,19 @@ export type BlockerItem = components["schemas"]["BlockerItem"];
  */
 export function fmtINR(val: number | string | null | undefined): string {
   if (val === null || val === undefined || val === "") return "\u2013";
-  const n = typeof val === "string" ? parseFloat(val) : val;
+  const n = typeof val === "string" ? parseFloat(String(val).replace(/,/g, "")) : val;
   if (!isFinite(n)) return "\u2013";
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
 }
 
 export function fmtNum(val: number | string | null | undefined): string {
   if (val === null || val === undefined || val === "") return "\u2013";
-  const n = typeof val === "string" ? parseFloat(val) : val;
+  const n = typeof val === "string" ? parseFloat(String(val).replace(/,/g, "")) : val;
   if (!isFinite(n)) return "\u2013";
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(n);
 }
