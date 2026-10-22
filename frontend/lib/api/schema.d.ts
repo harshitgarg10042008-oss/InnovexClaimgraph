@@ -855,6 +855,10 @@ export interface components {
             run_at?: string | null;
             /** Summary */
             summary?: Record<string, never> | null;
+            /** Ledger Status */
+            ledger_status?: string | null;
+            /** Provisional Reason */
+            provisional_reason?: string | null;
         };
         /** LinkResponse */
         LinkResponse: {

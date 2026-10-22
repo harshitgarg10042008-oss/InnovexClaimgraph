@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * M6 WorkspaceClient — full 4-tab workspace.
+ * Replaces the M5 single-tab Review workspace.
+ *
+ * Tabs: Review (existing) | Graph | Ledger | Interest | Findings
+ * Shared linking state managed here, passed down to each tab.
+ * TanStack Query used for Graph/Ledger/Findings data.
+ */
+
 import {
   ChangeEvent,
   KeyboardEvent,
@@ -9,6 +18,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Check,
@@ -28,6 +38,16 @@ import { apiClient } from "@/lib/api/client";
 import { displayFactValue, formatDate } from "@/lib/format";
 import { getCaseCode } from "@/lib/cases";
 import type { components } from "@/lib/api/schema";
+import {
+  LinkingStatusBadge,
+  RunLinkingButton,
+  ErrorToast,
+} from "../../components/m6/LinkingPanel";
+import { GraphTab } from "../../components/m6/GraphTab";
+import { LedgerTab } from "../../components/m6/LedgerTab";
+import { InterestTab } from "../../components/m6/InterestTab";
+import { FindingsTab } from "../../components/m6/FindingsTab";
+import type { LinkRunResponse } from "../../components/m6/shared";
 
 type Case = components["schemas"]["CaseRead"];
 type Doc = components["schemas"]["DocumentResponse"];
@@ -46,6 +66,7 @@ type Audit = {
   after_json: Value;
 };
 type FieldFilter = "needs_review" | "all" | "not_present";
+type WorkspaceTab = "review" | "graph" | "ledger" | "interest" | "findings";
 
 const terminalDocs = new Set([
   "ready",
@@ -68,6 +89,12 @@ function statusLabel(status: string) {
 
 export default function CaseWorkspace() {
   const { id } = useParams<{ id: string }>();
+  const qc = useQueryClient();
+
+  /* ---------------------------------------------------------------- */
+  /* Workspace state                                                   */
+  /* ---------------------------------------------------------------- */
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("review");
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [facts, setFacts] = useState<Fact[]>([]);
@@ -94,6 +121,33 @@ export default function CaseWorkspace() {
   );
   const [fitWidth, setFitWidth] = useState(true);
 
+  /* Linking state */
+  const [linkRunResult, setLinkRunResult] = useState<LinkRunResponse | null>(null);
+  const [linkingLoading, setLinkingLoading] = useState(false);
+  const [linkingError, setLinkingError] = useState<string | null>(null);
+
+  /* Evidence drawer override for M6 tabs */
+  const [m6EvidenceDoc, setM6EvidenceDoc] = useState<{
+    docId: string;
+    page: number;
+  } | null>(null);
+
+  /* ---------------------------------------------------------------- */
+  /* Derived linking state                                              */
+  /* ---------------------------------------------------------------- */
+  const ledgerStatus = linkRunResult?.linking_status ?? null;
+  const isBlocked =
+    ledgerStatus === "blocked" ||
+    (linkRunResult?.blockers ?? []).length > 0;
+  const isStale = linkRunResult?.stale ?? false;
+  const isProvisional = ledgerStatus === "provisional";
+  const provisionalReason =
+    (linkRunResult as unknown as Record<string, unknown>)
+      ?.provisional_reason as string | undefined;
+
+  /* ---------------------------------------------------------------- */
+  /* Load case data                                                     */
+  /* ---------------------------------------------------------------- */
   const load = useCallback(async () => {
     const [nextCase, nextDocs, nextFacts, nextSummary] = await Promise.all([
       apiClient<Case>(`/cases/${id}`),
@@ -107,7 +161,6 @@ export default function CaseWorkspace() {
     setFacts(sortedFacts);
     setSummary(nextSummary);
 
-    // Initial fact selection if none selected yet
     setSelectedFact((current) => {
       if (current) {
         const found = sortedFacts.find((f) => f.id === current.id);
@@ -136,7 +189,37 @@ export default function CaseWorkspace() {
     return () => window.clearInterval(timer);
   }, [docs, load]);
 
-  // Find next needs-review fact for auto-advance
+  /* ---------------------------------------------------------------- */
+  /* Run linking                                                        */
+  /* ---------------------------------------------------------------- */
+  const runLinking = useCallback(async () => {
+    setLinkingLoading(true);
+    setLinkingError(null);
+    try {
+      const result = await apiClient<LinkRunResponse>(
+        `/cases/${id}/link/run`,
+        {
+          method: "POST",
+          headers: { "X-Reviewer": reviewer },
+        },
+      );
+      setLinkRunResult(result);
+      // Invalidate TanStack Query caches for graph/ledger/findings
+      await qc.invalidateQueries({ queryKey: ["graph", id] });
+      await qc.invalidateQueries({ queryKey: ["ledger", id] });
+      await qc.invalidateQueries({ queryKey: ["findings", id] });
+    } catch (e) {
+      setLinkingError(
+        e instanceof Error ? e.message : "Linking failed. Please try again.",
+      );
+    } finally {
+      setLinkingLoading(false);
+    }
+  }, [id, reviewer, qc]);
+
+  /* ---------------------------------------------------------------- */
+  /* Review tab actions (unchanged from M5)                            */
+  /* ---------------------------------------------------------------- */
   const advanceToNext = (
     currentFact: Fact,
     allFacts: Fact[],
@@ -159,7 +242,6 @@ export default function CaseWorkspace() {
 
     if (prevInDoc) return prevInDoc;
 
-    // Look across entire case if no more needs_review in current scope
     const anyNext = allFacts.find(
       (f) => f.status === "needs_review" && f.id !== currentFact.id,
     );
@@ -182,7 +264,6 @@ export default function CaseWorkspace() {
 
       setFacts(nextFacts);
 
-      // Auto-advance to next needs_review field
       const nextFact = advanceToNext(fact, nextFacts, selectedDocId);
       setSelectedFact(nextFact);
 
@@ -287,9 +368,7 @@ export default function CaseWorkspace() {
     setSelectedDocId(docId);
     if (docId) {
       const docFacts = facts.filter((f) => f.document_id === docId);
-      const firstNeedsReview = docFacts.find(
-        (f) => f.status === "needs_review",
-      );
+      const firstNeedsReview = docFacts.find((f) => f.status === "needs_review");
       setSelectedFact(firstNeedsReview ?? docFacts[0] ?? null);
     } else {
       const firstNeedsReview = facts.find((f) => f.status === "needs_review");
@@ -312,7 +391,6 @@ export default function CaseWorkspace() {
     }));
   };
 
-  // Grouped documents for the centre pane
   const displayedDocs = useMemo(() => {
     if (selectedDocId) {
       return docs.filter((d) => d.id === selectedDocId);
@@ -320,7 +398,6 @@ export default function CaseWorkspace() {
     return docs;
   }, [docs, selectedDocId]);
 
-  // List of currently visible facts in centre pane (for keyboard navigation)
   const visibleFacts = useMemo(() => {
     const list: Fact[] = [];
     displayedDocs.forEach((doc) => {
@@ -343,6 +420,19 @@ export default function CaseWorkspace() {
   }, [displayedDocs, facts, fieldFilter, expandedNotPresent]);
 
   const keyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Close dialogs on Escape
+    if (event.key === "Escape") {
+      if (m6EvidenceDoc) {
+        setM6EvidenceDoc(null);
+        return;
+      }
+      if (showAudit) {
+        setShowAudit(false);
+        return;
+      }
+    }
+
+    if (activeTab !== "review") return;
     if (editing) return;
     if (
       event.target instanceof HTMLInputElement ||
@@ -380,7 +470,6 @@ export default function CaseWorkspace() {
     }
   };
 
-  // Determine active document for bulk auto confirm button
   const activeDoc = useMemo(() => {
     if (selectedDocId) {
       return docs.find((d) => d.id === selectedDocId) ?? null;
@@ -400,6 +489,42 @@ export default function CaseWorkspace() {
 
   const caseCode = caseData ? getCaseCode(caseData) : "CASE";
 
+  /* ---------------------------------------------------------------- */
+  /* Jump to review tab (from blocker panel)                            */
+  /* ---------------------------------------------------------------- */
+  const handleJumpToReview = useCallback(
+    (docName: string) => {
+      setActiveTab("review");
+      const doc = docs.find((d) => d.filename.includes(docName) || d.id === docName);
+      if (doc) {
+        setSelectedDocId(doc.id);
+        const docFacts = facts.filter((f) => f.document_id === doc.id);
+        const firstNeedsReview = docFacts.find((f) => f.status === "needs_review");
+        setSelectedFact(firstNeedsReview ?? docFacts[0] ?? null);
+      }
+    },
+    [docs, facts],
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Open evidence from M6 tabs                                        */
+  /* ---------------------------------------------------------------- */
+  const handleOpenEvidence = useCallback((docId: string, page: number) => {
+    setM6EvidenceDoc({ docId, page });
+  }, []);
+
+  /* ---------------------------------------------------------------- */
+  /* Stat strip values                                                  */
+  /* ---------------------------------------------------------------- */
+  // linking_status comes from LinkRunResponse; ledger_status from LedgerResponse
+  // Both are behind separate queries — use linkRunResult for the header stat
+  const displayLinkingStatus = linkRunResult?.linking_status ?? null;
+  const displayLedgerStatus =
+    (linkRunResult as unknown as Record<string, unknown>)?.ledger_status as
+      | string
+      | null
+      | undefined ?? displayLinkingStatus;
+
   return (
     <div
       className="workspace-container"
@@ -409,7 +534,7 @@ export default function CaseWorkspace() {
     >
       <Header />
 
-      {/* Sticky Header: Header bar, 4 stat cells, and tab bar */}
+      {/* Sticky Header */}
       <header className="workspace-pinned-header">
         <div className="workspace-header-bar">
           <div className="case-heading">
@@ -430,6 +555,11 @@ export default function CaseWorkspace() {
                 placeholder="Reviewer name"
               />
             </label>
+            <RunLinkingButton
+              loading={linkingLoading}
+              onRun={() => void runLinking()}
+              reviewSummaryReady={summary?.ready_for_linking}
+            />
             <button
               type="button"
               className="button"
@@ -442,6 +572,17 @@ export default function CaseWorkspace() {
           </div>
         </div>
 
+        {/* Linking error toast */}
+        {linkingError && (
+          <div style={{ margin: "4px 24px 0" }}>
+            <ErrorToast
+              message={linkingError}
+              onDismiss={() => setLinkingError(null)}
+            />
+          </div>
+        )}
+
+        {/* Review error */}
         {error && (
           <div
             className="alert alert-error"
@@ -452,17 +593,23 @@ export default function CaseWorkspace() {
           </div>
         )}
 
-        {/* 4 flat stat cells pinned */}
-        <div className="workspace-stat-strip">
+        {/* 5 flat stat cells (4 review + 1 linking) */}
+        <div className="workspace-stat-strip" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
           <div className="stat-cell">
             <span className="stat-label">Needs review</span>
-            <strong className="stat-value" style={{ color: "var(--color-attention)" }}>
+            <strong
+              className="stat-value"
+              style={{ color: "var(--color-attention)" }}
+            >
               {summary?.status_counts.needs_review ?? 0}
             </strong>
           </div>
           <div className="stat-cell">
             <span className="stat-label">Confirmed</span>
-            <strong className="stat-value" style={{ color: "var(--color-verified)" }}>
+            <strong
+              className="stat-value"
+              style={{ color: "var(--color-verified)" }}
+            >
               {(summary?.status_counts.confirmed ?? 0) +
                 (summary?.status_counts.edited ?? 0)}
             </strong>
@@ -474,7 +621,7 @@ export default function CaseWorkspace() {
             </strong>
           </div>
           <div className="stat-cell">
-            <span className="stat-label">Linking</span>
+            <span className="stat-label">Review ready</span>
             <strong
               className="stat-value"
               style={{
@@ -483,310 +630,315 @@ export default function CaseWorkspace() {
                   : "var(--color-conflict)",
               }}
             >
-              {summary?.ready_for_linking ? "Ready" : "Blocked"}
+              {summary?.ready_for_linking ? "Yes" : "No"}
+            </strong>
+          </div>
+          <div className="stat-cell">
+            <span className="stat-label">Linking</span>
+            <strong className="stat-value">
+              <LinkingStatusBadge
+                linkingStatus={displayLinkingStatus}
+                ledgerStatus={displayLedgerStatus}
+                stale={isStale}
+              />
             </strong>
           </div>
         </div>
 
-        {/* Tabs Bar */}
+        {/* Tab Bar */}
         <div className="workspace-tab-bar">
           <div style={{ display: "flex", gap: "6px" }}>
-            <button type="button" className="tab active">
-              Review
-            </button>
-            {["Graph", "Ledger", "Interest", "Findings", "Dossier"].map((tab) => (
+            {(
+              [
+                { key: "review", label: "Review" },
+                { key: "graph", label: "Graph" },
+                { key: "ledger", label: "Ledger" },
+                { key: "interest", label: "Interest" },
+                { key: "findings", label: "Findings" },
+              ] as const
+            ).map((tab) => (
               <button
-                key={tab}
+                key={tab.key}
                 type="button"
-                className="tab disabled"
-                title="Coming in a later milestone"
-                disabled
+                className={`tab ${activeTab === tab.key ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+                tabIndex={0}
+                data-active={activeTab === tab.key}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
-          <div className="shortcut-hint" style={{ margin: 0 }}>
-            Keyboard: Up/Down or j/k select · Enter confirm · E edit · N not present
-          </div>
+          {activeTab === "review" && (
+            <div className="shortcut-hint" style={{ margin: 0 }}>
+              Keyboard: Up/Down or j/k select · Enter confirm · E edit · N not
+              present
+            </div>
+          )}
         </div>
       </header>
 
-      {/* Three independent scrollable panes under sticky header */}
-      <div className="workspace-three-panes">
-        {/* Left Rail: Documents */}
-        <aside className="doc-rail-pane">
-          <div className="doc-rail-top">
-            <h2 style={{ fontSize: "0.82rem", textTransform: "uppercase", color: "var(--color-slate)", letterSpacing: "0.05em" }}>
-              Documents ({docs.length})
-            </h2>
-            <label className="upload-label" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-              <FileUp size={13} />
-              <span>Upload</span>
-              <input type="file" multiple onChange={upload} />
-            </label>
-          </div>
+      {/* ============================================================ */}
+      {/* Tab content                                                   */}
+      {/* ============================================================ */}
 
-          <div
-            className="drop-zone"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              uploadFiles(e.dataTransfer.files);
-            }}
-          >
-            <FileUp size={14} />
-            <span>Drop files to add</span>
-          </div>
-
-          {Object.entries(uploadProgress).map(([name, status]) => (
-            <p className="upload-progress" key={name}>
-              {name}: {status}
-            </p>
-          ))}
-
-          {/* All documents selector */}
-          <div
-            className={`doc-rail-row ${selectedDocId === null ? "active" : ""}`}
-            onClick={() => handleSelectDocument(null)}
-            title="Show all documents"
-          >
-            <div className="doc-rail-title-row">
-              <span className="doc-kind-badge">ALL</span>
-              <span className="doc-filename-text">All documents ({docs.length})</span>
-            </div>
-            <div className="doc-rail-meta-row">
-              <span className="text-slate text-xs">
-                {summary?.status_counts.needs_review ?? 0} needs review
-              </span>
-            </div>
-          </div>
-
-          {/* Document list */}
-          {docs.map((doc) => {
-            const docFacts = facts.filter((f) => f.document_id === doc.id);
-            const needsReviewCount = docFacts.filter(
-              (f) => f.status === "needs_review",
-            ).length;
-            const isSelected = selectedDocId === doc.id;
-            return (
-              <div
-                key={doc.id}
-                className={`doc-rail-row ${isSelected ? "active" : ""}`}
-                onClick={() => handleSelectDocument(doc.id)}
-                title={doc.filename}
+      {/* REVIEW TAB — three-pane layout (unchanged from M5) */}
+      {activeTab === "review" && (
+        <div className="workspace-three-panes">
+          {/* Left Rail: Documents */}
+          <aside className="doc-rail-pane">
+            <div className="doc-rail-top">
+              <h2
+                style={{
+                  fontSize: "0.82rem",
+                  textTransform: "uppercase",
+                  color: "var(--color-slate)",
+                  letterSpacing: "0.05em",
+                }}
               >
-                <div className="doc-rail-title-row">
-                  <span className="doc-kind-badge">{doc.kind}</span>
-                  <span className="doc-filename-text" title={doc.filename}>
-                    {doc.filename}
-                  </span>
-                </div>
-                <div className="doc-rail-meta-row">
-                  <span
-                    className={`status status-${doc.status === "ready" ? "verified" : doc.status === "needs_review" ? "attention" : "slate"}`}
-                  >
-                    {doc.status === "ready" ? (
-                      <CheckCircle2 size={12} />
-                    ) : (
-                      <AlertCircle size={12} />
-                    )}
-                    <span>{doc.status.replace("_", " ")}</span>
-                  </span>
-                  {needsReviewCount > 0 ? (
-                    <span className="needs-review-pill">
-                      {needsReviewCount} review
-                    </span>
-                  ) : (
-                    <span className="text-slate text-xs">0 review</span>
-                  )}
-                </div>
+                Documents ({docs.length})
+              </h2>
+              <label
+                className="upload-label"
+                style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+              >
+                <FileUp size={13} />
+                <span>Upload</span>
+                <input type="file" multiple onChange={upload} />
+              </label>
+            </div>
+
+            <div
+              className="drop-zone"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                uploadFiles(e.dataTransfer.files);
+              }}
+            >
+              <FileUp size={14} />
+              <span>Drop files to add</span>
+            </div>
+
+            {Object.entries(uploadProgress).map(([name, status]) => (
+              <p className="upload-progress" key={name}>
+                {name}: {status}
+              </p>
+            ))}
+
+            <div
+              className={`doc-rail-row ${selectedDocId === null ? "active" : ""}`}
+              onClick={() => handleSelectDocument(null)}
+              title="Show all documents"
+            >
+              <div className="doc-rail-title-row">
+                <span className="doc-kind-badge">ALL</span>
+                <span className="doc-filename-text">
+                  All documents ({docs.length})
+                </span>
               </div>
-            );
-          })}
-
-          <button
-            type="button"
-            className="button button-dark full-width"
-            onClick={process}
-            disabled={busy || docs.length === 0}
-            style={{ marginTop: "auto", fontSize: "0.78rem" }}
-          >
-            {docs.length > 0 && docs.every((doc) => terminalDocs.has(doc.status))
-              ? "Reprocess documents"
-              : "Process documents"}
-          </button>
-        </aside>
-
-        {/* Centre Pane: Fields & Sticky Action Bar */}
-        <section className="centre-fields-pane">
-          {/* Centre pane toolbar: segmented filter and doc filter note */}
-          <div className="centre-pane-toolbar">
-            <div className="segmented-control" role="group" aria-label="Field filter">
-              <button
-                type="button"
-                className={fieldFilter === "needs_review" ? "active" : ""}
-                onClick={() => setFieldFilter("needs_review")}
-              >
-                Needs review
-              </button>
-              <button
-                type="button"
-                className={fieldFilter === "all" ? "active" : ""}
-                onClick={() => setFieldFilter("all")}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                className={fieldFilter === "not_present" ? "active" : ""}
-                onClick={() => setFieldFilter("not_present")}
-              >
-                Not present
-              </button>
+              <div className="doc-rail-meta-row">
+                <span className="text-slate text-xs">
+                  {summary?.status_counts.needs_review ?? 0} needs review
+                </span>
+              </div>
             </div>
 
-            <div style={{ fontSize: "0.76rem", color: "var(--color-slate)" }}>
-              {selectedDocId
-                ? `${displayedDocs[0]?.kind ?? "Document"} · ${displayedDocs[0]?.filename ?? ""}`
-                : `Showing all ${docs.length} documents`}
-            </div>
-          </div>
-
-          {/* Scrollable fields area */}
-          <div className="centre-pane-scroll">
-            {displayedDocs.map((doc) => {
+            {docs.map((doc) => {
               const docFacts = facts.filter((f) => f.document_id === doc.id);
-              const activeFacts = docFacts.filter(
-                (f) =>
+              const needsReviewCount = docFacts.filter(
+                (f) => f.status === "needs_review",
+              ).length;
+              const isSelected = selectedDocId === doc.id;
+              return (
+                <div
+                  key={doc.id}
+                  className={`doc-rail-row ${isSelected ? "active" : ""}`}
+                  onClick={() => handleSelectDocument(doc.id)}
+                  title={doc.filename}
+                >
+                  <div className="doc-rail-title-row">
+                    <span className="doc-kind-badge">{doc.kind}</span>
+                    <span className="doc-filename-text" title={doc.filename}>
+                      {doc.filename}
+                    </span>
+                  </div>
+                  <div className="doc-rail-meta-row">
+                    <span
+                      className={`status status-${doc.status === "ready" ? "verified" : doc.status === "needs_review" ? "attention" : "slate"}`}
+                    >
+                      {doc.status === "ready" ? (
+                        <CheckCircle2 size={12} />
+                      ) : (
+                        <AlertCircle size={12} />
+                      )}
+                      <span>{doc.status.replace("_", " ")}</span>
+                    </span>
+                    {needsReviewCount > 0 ? (
+                      <span className="needs-review-pill">
+                        {needsReviewCount} review
+                      </span>
+                    ) : (
+                      <span className="text-slate text-xs">0 review</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            <button
+              type="button"
+              className="button button-dark full-width"
+              onClick={process}
+              disabled={busy || docs.length === 0}
+              style={{ marginTop: "auto", fontSize: "0.78rem" }}
+            >
+              {docs.length > 0 &&
+              docs.every((doc) => terminalDocs.has(doc.status))
+                ? "Reprocess documents"
+                : "Process documents"}
+            </button>
+          </aside>
+
+          {/* Centre Pane: Fields */}
+          <section className="centre-fields-pane">
+            <div className="centre-pane-toolbar">
+              <div
+                className="segmented-control"
+                role="group"
+                aria-label="Field filter"
+              >
+                <button
+                  type="button"
+                  className={fieldFilter === "needs_review" ? "active" : ""}
+                  onClick={() => setFieldFilter("needs_review")}
+                >
+                  Needs review
+                </button>
+                <button
+                  type="button"
+                  className={fieldFilter === "all" ? "active" : ""}
+                  onClick={() => setFieldFilter("all")}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={fieldFilter === "not_present" ? "active" : ""}
+                  onClick={() => setFieldFilter("not_present")}
+                >
+                  Not present
+                </button>
+              </div>
+
+              <div style={{ fontSize: "0.76rem", color: "var(--color-slate)" }}>
+                {selectedDocId
+                  ? `${displayedDocs[0]?.kind ?? "Document"} · ${displayedDocs[0]?.filename ?? ""}`
+                  : `Showing all ${docs.length} documents`}
+              </div>
+            </div>
+
+            <div className="centre-pane-scroll">
+              {displayedDocs.map((doc) => {
+                const docFacts = facts.filter((f) => f.document_id === doc.id);
+                const activeFacts = docFacts.filter((f) =>
                   fieldFilter === "needs_review"
                     ? f.status === "needs_review"
                     : fieldFilter === "all"
                       ? f.status !== "not_present"
                       : f.status === "not_present",
-              );
-              const notPresentFacts = docFacts.filter(
-                (f) => f.status === "not_present",
-              );
-              const isNotPresentExpanded = Boolean(expandedNotPresent[doc.id]);
+                );
+                const notPresentFacts = docFacts.filter(
+                  (f) => f.status === "not_present",
+                );
+                const isNotPresentExpanded = Boolean(expandedNotPresent[doc.id]);
 
-              if (
-                activeFacts.length === 0 &&
-                (fieldFilter === "not_present" || notPresentFacts.length === 0)
-              ) {
-                if (fieldFilter === "needs_review") {
-                  return (
-                    <div key={doc.id} className="fact-doc-section">
-                      <div className="fact-doc-header">
-                        <div className="doc-info">
-                          <span className="doc-kind-badge">{doc.kind}</span>
-                          <span className="filename-sub">{doc.filename}</span>
+                if (
+                  activeFacts.length === 0 &&
+                  (fieldFilter === "not_present" || notPresentFacts.length === 0)
+                ) {
+                  if (fieldFilter === "needs_review") {
+                    return (
+                      <div key={doc.id} className="fact-doc-section">
+                        <div className="fact-doc-header">
+                          <div className="doc-info">
+                            <span className="doc-kind-badge">{doc.kind}</span>
+                            <span className="filename-sub">{doc.filename}</span>
+                          </div>
                         </div>
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            fontSize: "0.76rem",
+                            color: "var(--color-verified)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>All fields reviewed in this document.</span>
+                        </div>
+                        {notPresentFacts.length > 0 && (
+                          <div className="not-present-bar">
+                            <span>
+                              {notPresentFacts.length} fields not present
+                            </span>
+                            <button
+                              type="button"
+                              className="text-button"
+                              onClick={() => toggleNotPresent(doc.id)}
+                            >
+                              {isNotPresentExpanded ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                        )}
+                        {isNotPresentExpanded &&
+                          notPresentFacts.map((fact) => (
+                            <FactCompactRow
+                              key={fact.id}
+                              fact={fact}
+                              selected={selectedFact?.id === fact.id}
+                              editing={editing === fact.id}
+                              editValue={editValue}
+                              onSelect={() => {
+                                setSelectedFact(fact);
+                                setEditValue(
+                                  displayFactValue(valueOf(fact), fact.field),
+                                );
+                              }}
+                              onEdit={setEditValue}
+                              onSave={() => saveEdit(fact)}
+                              onCancel={() => setEditing(null)}
+                              onStartEdit={() => setEditing(fact.id)}
+                              onAction={(action) => void update(fact, action)}
+                            />
+                          ))}
                       </div>
-                      <div
+                    );
+                  }
+                  return null;
+                }
+
+                return (
+                  <div key={doc.id} className="fact-doc-section">
+                    <div className="fact-doc-header">
+                      <div className="doc-info">
+                        <span className="doc-kind-badge">{doc.kind}</span>
+                        <span className="filename-sub">{doc.filename}</span>
+                      </div>
+                      <span
                         style={{
-                          padding: "8px 12px",
-                          fontSize: "0.76rem",
-                          color: "var(--color-verified)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
+                          fontSize: "0.72rem",
+                          color: "var(--color-slate)",
                         }}
                       >
-                        <CheckCircle2 size={14} />
-                        <span>All fields reviewed in this document.</span>
-                      </div>
-                      {notPresentFacts.length > 0 && (
-                        <div className="not-present-bar">
-                          <span>
-                            {notPresentFacts.length} fields not present
-                          </span>
-                          <button
-                            type="button"
-                            className="text-button"
-                            onClick={() => toggleNotPresent(doc.id)}
-                          >
-                            {isNotPresentExpanded ? "Hide" : "Show"}
-                          </button>
-                        </div>
-                      )}
-                      {isNotPresentExpanded &&
-                        notPresentFacts.map((fact) => (
-                          <FactCompactRow
-                            key={fact.id}
-                            fact={fact}
-                            selected={selectedFact?.id === fact.id}
-                            editing={editing === fact.id}
-                            editValue={editValue}
-                            onSelect={() => {
-                              setSelectedFact(fact);
-                              setEditValue(
-                                displayFactValue(valueOf(fact), fact.field),
-                              );
-                            }}
-                            onEdit={setEditValue}
-                            onSave={() => saveEdit(fact)}
-                            onCancel={() => setEditing(null)}
-                            onStartEdit={() => setEditing(fact.id)}
-                            onAction={(action) => void update(fact, action)}
-                          />
-                        ))}
+                        {activeFacts.length} {fieldFilter.replace("_", " ")}{" "}
+                        fields
+                      </span>
                     </div>
-                  );
-                }
-                return null;
-              }
 
-              return (
-                <div key={doc.id} className="fact-doc-section">
-                  <div className="fact-doc-header">
-                    <div className="doc-info">
-                      <span className="doc-kind-badge">{doc.kind}</span>
-                      <span className="filename-sub">{doc.filename}</span>
-                    </div>
-                    <span style={{ fontSize: "0.72rem", color: "var(--color-slate)" }}>
-                      {activeFacts.length} {fieldFilter.replace("_", " ")} fields
-                    </span>
-                  </div>
-
-                  {activeFacts.map((fact) => (
-                    <FactCompactRow
-                      key={fact.id}
-                      fact={fact}
-                      selected={selectedFact?.id === fact.id}
-                      editing={editing === fact.id}
-                      editValue={editValue}
-                      onSelect={() => {
-                        setSelectedFact(fact);
-                        setEditValue(
-                          displayFactValue(valueOf(fact), fact.field),
-                        );
-                      }}
-                      onEdit={setEditValue}
-                      onSave={() => saveEdit(fact)}
-                      onCancel={() => setEditing(null)}
-                      onStartEdit={() => setEditing(fact.id)}
-                      onAction={(action) => void update(fact, action)}
-                    />
-                  ))}
-
-                  {/* Collapsed not-present row per document */}
-                  {fieldFilter !== "not_present" && notPresentFacts.length > 0 && (
-                    <div className="not-present-bar">
-                      <span>{notPresentFacts.length} fields not present</span>
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => toggleNotPresent(doc.id)}
-                      >
-                        {isNotPresentExpanded ? "Hide" : "Show"}
-                      </button>
-                    </div>
-                  )}
-
-                  {fieldFilter !== "not_present" &&
-                    isNotPresentExpanded &&
-                    notPresentFacts.map((fact) => (
+                    {activeFacts.map((fact) => (
                       <FactCompactRow
                         key={fact.id}
                         fact={fact}
@@ -806,53 +958,189 @@ export default function CaseWorkspace() {
                         onAction={(action) => void update(fact, action)}
                       />
                     ))}
-                </div>
-              );
-            })}
-          </div>
 
-          {/* Sticky action bar at the bottom of the centre pane */}
-          <div className="centre-pane-action-bar">
-            <div>
-              {activeDoc && (
+                    {fieldFilter !== "not_present" && notPresentFacts.length > 0 && (
+                      <div className="not-present-bar">
+                        <span>{notPresentFacts.length} fields not present</span>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => toggleNotPresent(doc.id)}
+                        >
+                          {isNotPresentExpanded ? "Hide" : "Show"}
+                        </button>
+                      </div>
+                    )}
+
+                    {fieldFilter !== "not_present" &&
+                      isNotPresentExpanded &&
+                      notPresentFacts.map((fact) => (
+                        <FactCompactRow
+                          key={fact.id}
+                          fact={fact}
+                          selected={selectedFact?.id === fact.id}
+                          editing={editing === fact.id}
+                          editValue={editValue}
+                          onSelect={() => {
+                            setSelectedFact(fact);
+                            setEditValue(
+                              displayFactValue(valueOf(fact), fact.field),
+                            );
+                          }}
+                          onEdit={setEditValue}
+                          onSave={() => saveEdit(fact)}
+                          onCancel={() => setEditing(null)}
+                          onStartEdit={() => setEditing(fact.id)}
+                          onAction={(action) => void update(fact, action)}
+                        />
+                      ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="centre-pane-action-bar">
+              <div>
+                {activeDoc && (
+                  <button
+                    type="button"
+                    className="button button-dark"
+                    onClick={() => void bulk(activeDoc)}
+                    disabled={busy || activeDocAutoCount === 0}
+                    title={`Confirm ${activeDocAutoCount} auto fields in ${activeDoc.filename}`}
+                    style={{ fontSize: "0.78rem" }}
+                  >
+                    Confirm all auto ({activeDocAutoCount})
+                  </button>
+                )}
+              </div>
+              <div>
                 <button
                   type="button"
-                  className="button button-dark"
-                  onClick={() => void bulk(activeDoc)}
-                  disabled={busy || activeDocAutoCount === 0}
-                  title={`Confirm ${activeDocAutoCount} auto fields in ${activeDoc.filename}`}
+                  className="button"
+                  onClick={nextIssue}
+                  disabled={
+                    busy || (summary?.status_counts.needs_review ?? 0) === 0
+                  }
                   style={{ fontSize: "0.78rem" }}
                 >
-                  Confirm all auto ({activeDocAutoCount})
+                  Next issue
                 </button>
-              )}
+              </div>
             </div>
-            <div>
+          </section>
+
+          {/* Right Pane: Evidence Drawer */}
+          <EvidenceDrawer
+            key={selectedFact?.id ?? "empty"}
+            fact={selectedFact}
+            maxPages={
+              docs.find((doc) => doc.id === selectedFact?.document_id)
+                ?.pages ?? 1
+            }
+            fitWidth={fitWidth}
+            setFitWidth={setFitWidth}
+          />
+        </div>
+      )}
+
+      {/* GRAPH TAB */}
+      {activeTab === "graph" && (
+        <div className="workspace-m6-pane">
+          <GraphTab
+            caseId={id}
+            linkRunResult={linkRunResult}
+            isBlocked={isBlocked}
+            isStale={isStale}
+            isProvisional={isProvisional}
+            provisionalReason={provisionalReason}
+            onRunLinking={() => void runLinking()}
+            runLinkingLoading={linkingLoading}
+            onJumpToReview={handleJumpToReview}
+            onOpenEvidence={handleOpenEvidence}
+          />
+        </div>
+      )}
+
+      {/* LEDGER TAB */}
+      {activeTab === "ledger" && (
+        <div className="workspace-m6-pane">
+          <LedgerTab
+            caseId={id}
+            linkRunResult={linkRunResult}
+            isBlocked={isBlocked}
+            isStale={isStale}
+            isProvisional={isProvisional}
+            provisionalReason={provisionalReason}
+            onRunLinking={() => void runLinking()}
+            runLinkingLoading={linkingLoading}
+            onJumpToReview={handleJumpToReview}
+            onOpenEvidence={handleOpenEvidence}
+          />
+        </div>
+      )}
+
+      {/* INTEREST TAB */}
+      {activeTab === "interest" && (
+        <div className="workspace-m6-pane">
+          <InterestTab
+            caseId={id}
+            linkRunResult={linkRunResult}
+            isBlocked={isBlocked}
+            isStale={isStale}
+            isProvisional={isProvisional}
+            provisionalReason={provisionalReason}
+            onRunLinking={() => void runLinking()}
+            runLinkingLoading={linkingLoading}
+            onJumpToReview={handleJumpToReview}
+          />
+        </div>
+      )}
+
+      {/* FINDINGS TAB */}
+      {activeTab === "findings" && (
+        <div className="workspace-m6-pane">
+          <FindingsTab
+            caseId={id}
+            linkRunResult={linkRunResult}
+            isBlocked={isBlocked}
+            isStale={isStale}
+            onRunLinking={() => void runLinking()}
+            runLinkingLoading={linkingLoading}
+            onJumpToReview={handleJumpToReview}
+            onGoToGraph={() => setActiveTab("graph")}
+            onOpenEvidence={handleOpenEvidence}
+          />
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* M6 evidence overlay (opened from Graph/Ledger/Findings)      */}
+      {/* ============================================================ */}
+      {m6EvidenceDoc && (
+        <div className="m6-evidence-overlay">
+          <div className="m6-evidence-overlay-panel">
+            <div className="section-heading" style={{ padding: "12px 16px" }}>
+              <h2>Evidence</h2>
               <button
                 type="button"
-                className="button"
-                onClick={nextIssue}
-                disabled={busy || (summary?.status_counts.needs_review ?? 0) === 0}
-                style={{ fontSize: "0.78rem" }}
+                className="icon-btn-compact"
+                onClick={() => setM6EvidenceDoc(null)}
+                aria-label="Close evidence"
               >
-                Next issue
+                <X size={15} />
               </button>
             </div>
+            <M6EvidenceView
+              docId={m6EvidenceDoc.docId}
+              page={m6EvidenceDoc.page}
+              docs={docs}
+            />
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* Right Pane: Evidence Drawer */}
-        <EvidenceDrawer
-          key={selectedFact?.id ?? "empty"}
-          fact={selectedFact}
-          maxPages={
-            docs.find((doc) => doc.id === selectedFact?.document_id)?.pages ?? 1
-          }
-          fitWidth={fitWidth}
-          setFitWidth={setFitWidth}
-        />
-      </div>
-
+      {/* Audit panel */}
       {showAudit && (
         <aside className="audit-panel">
           <div className="section-heading">
@@ -881,6 +1169,9 @@ export default function CaseWorkspace() {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* FactCompactRow (unchanged from M5)                                  */
+/* ------------------------------------------------------------------ */
 function FactCompactRow({
   fact,
   selected,
@@ -904,6 +1195,9 @@ function FactCompactRow({
   onStartEdit: () => void;
   onAction: (action: string) => void;
 }) {
+  const valueOf = (fact: Fact) =>
+    fact.value_json as unknown as Record<string, unknown> | null | undefined;
+
   const chipIcon =
     fact.status === "needs_review" ? (
       <AlertCircle size={11} />
@@ -1013,6 +1307,9 @@ function FactCompactRow({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* EvidenceDrawer (unchanged from M5)                                  */
+/* ------------------------------------------------------------------ */
 function EvidenceDrawer({
   fact,
   maxPages,
@@ -1028,7 +1325,6 @@ function EvidenceDrawer({
   const [imageError, setImageError] = useState(false);
   const bboxRef = useRef<HTMLDivElement>(null);
 
-  // Scroll bbox into view when selection or page changes
   useEffect(() => {
     if (fact?.bbox && bboxRef.current) {
       bboxRef.current.scrollIntoView({
@@ -1050,7 +1346,7 @@ function EvidenceDrawer({
 
   const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   const image = `${base}/documents/${fact.document_id}/pages/${page}/image`;
-  const raw = valueOf(fact);
+  const raw = fact.value_json as unknown as Record<string, unknown> | null;
 
   return (
     <aside className="evidence-pane">
@@ -1110,7 +1406,7 @@ function EvidenceDrawer({
           <div className="image-error">
             <ImageIcon size={22} />
             <p>Page image unavailable.</p>
-            <small>Exact location not found. Check the page.</small>
+            <small>Exact location not available. Check the page.</small>
           </div>
         ) : (
           <Image
@@ -1138,15 +1434,13 @@ function EvidenceDrawer({
 
       {!fact.bbox && (
         <p className="muted" style={{ fontSize: "0.74rem" }}>
-          Exact location not found. Check the page.
+          Exact location not available. Check the page.
         </p>
       )}
 
       <dl className="evidence-details">
         <dt>Quoted source text</dt>
-        <dd>
-          {String(raw?.source_text ?? raw?.value ?? "No quoted text")}
-        </dd>
+        <dd>{String(raw?.source_text ?? raw?.value ?? "No quoted text")}</dd>
         <dt>Extractor</dt>
         <dd>{fact.extractor_version ?? "Unknown"}</dd>
         <dt>Confidence</dt>
@@ -1157,5 +1451,73 @@ function EvidenceDrawer({
         </dd>
       </dl>
     </aside>
+  );
+}
+
+
+
+/* ------------------------------------------------------------------ */
+/* M6 Evidence view (simple viewer opened from tabs)                   */
+/* ------------------------------------------------------------------ */
+function M6EvidenceView({
+  docId,
+  page,
+  docs,
+}: {
+  docId: string;
+  page: number;
+  docs: Doc[];
+}) {
+  const [currentPage, setCurrentPage] = useState(page);
+  const [imageError, setImageError] = useState(false);
+
+  const doc = docs.find((d) => d.id === docId);
+  const maxPages = doc?.pages ?? 1;
+  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const image = `${base}/documents/${docId}/pages/${currentPage}/image`;
+
+  return (
+    <div style={{ padding: "0 16px 16px" }}>
+      {doc && (
+        <p style={{ fontSize: "0.76rem", color: "var(--color-slate)", marginBottom: "8px" }}>
+          {doc.filename} · Page {currentPage} of {maxPages}
+        </p>
+      )}
+      <div className="evidence-controls">
+        <button
+          type="button"
+          className="text-button"
+          disabled={currentPage <= 1}
+          onClick={() => { setCurrentPage(currentPage - 1); setImageError(false); }}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          className="text-button"
+          disabled={currentPage >= maxPages}
+          onClick={() => { setCurrentPage(currentPage + 1); setImageError(false); }}
+        >
+          Next
+        </button>
+      </div>
+      <div className="evidence-image fit-width" style={{ marginTop: "10px" }}>
+        {imageError ? (
+          <div className="image-error">
+            <ImageIcon size={22} />
+            <p>Exact location not available. Check the page.</p>
+          </div>
+        ) : (
+          <Image
+            src={image}
+            alt={`Page ${currentPage}`}
+            width={800}
+            height={1100}
+            unoptimized
+            onError={() => setImageError(true)}
+          />
+        )}
+      </div>
+    </div>
   );
 }
