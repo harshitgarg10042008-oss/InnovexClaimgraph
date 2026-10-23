@@ -350,12 +350,7 @@ export function InterestTab({
           ) : (
             <div className="interest-no-breakdown">
               <AlertCircle size={14} />
-              <p>
-                Per-period breakdown is not available. The API currently returns
-                only aggregate interest totals inside <code>summary</code>.
-                A read-only <code>GET /cases/&#123;id&#125;/interest</code> endpoint
-                with per-period slices and monthly rests is needed from the backend.
-              </p>
+              <p>Per-period breakdown not available yet</p>
             </div>
           )}
         </>
